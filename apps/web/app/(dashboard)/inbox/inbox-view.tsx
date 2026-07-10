@@ -228,7 +228,7 @@ function SortableHead({
 }
 
 // ---------------------------------------------------------------------------
-// Category picker
+// Category picker — pill-style buttons
 // ---------------------------------------------------------------------------
 
 function CategoryPicker({
@@ -244,7 +244,7 @@ function CategoryPicker({
     <DropdownMenu>
       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
         <button
-          className={`inline-flex items-center gap-1 whitespace-nowrap rounded border px-1.5 py-0.5 text-xs font-medium transition-opacity hover:opacity-80 ${
+          className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg border px-2 py-1 text-xs font-medium transition-all hover:opacity-80 ${
             meta.badge || 'border-border text-muted-foreground'
           }`}
         >
@@ -279,11 +279,12 @@ function CategoryPicker({
 function EmptyState({ label }: { label: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="bg-primary/10 mb-4 flex size-14 items-center justify-center rounded-full">
-        <IconMailbox className="text-primary size-7" />
+      <div className="relative mb-5 flex size-14 items-center justify-center rounded-full">
+        <div className="absolute inset-0 rounded-full bg-blue-500/10" />
+        <IconMailbox className="text-blue-400 relative size-7" />
       </div>
-      <p className="text-foreground text-sm font-medium">No {label} emails</p>
-      <p className="text-muted-foreground mt-1 text-sm">
+      <p className="text-foreground text-sm font-semibold">No {label} emails</p>
+      <p className="text-muted-foreground mt-1.5 max-w-xs text-sm leading-relaxed">
         {label === 'filtered'
           ? 'Emails matching your filter keywords will appear here.'
           : label === 'interested'
@@ -295,8 +296,7 @@ function EmptyState({ label }: { label: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Inbound message body — separates the new reply from the quoted history and
-// tucks the quote behind a toggle (empty quotes are dropped entirely).
+// Inbound message body
 // ---------------------------------------------------------------------------
 
 function InboundBody({
@@ -331,25 +331,25 @@ function InboundBody({
       )}
 
       {quoted && (
-        <div className="mt-2">
+        <div className="mt-3">
           <button
             type="button"
             onClick={() => setShowQuote((v) => !v)}
-            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors"
           >
             <IconChevronDown
-              className={`size-3 transition-transform ${showQuote ? 'rotate-180' : ''}`}
+              className={`size-3 transition-transform duration-200 ${showQuote ? 'rotate-180' : ''}`}
             />
             {showQuote ? 'Hide quoted text' : 'Show quoted text'}
           </button>
           {showQuote &&
             (isHtml ? (
               <div
-                className="border-muted-foreground/20 mt-2 border-l-2 pl-3 opacity-70 prose prose-sm dark:prose-invert max-w-none text-sm"
+                className="border-border/30 mt-2 border-l-2 pl-3 opacity-70 prose prose-sm dark:prose-invert max-w-none text-sm"
                 dangerouslySetInnerHTML={{ __html: quoted }}
               />
             ) : (
-              <pre className="border-muted-foreground/20 text-muted-foreground mt-2 whitespace-pre-wrap border-l-2 pl-3 font-sans text-xs leading-relaxed">
+              <pre className="text-muted-foreground mt-2 whitespace-pre-wrap border-l-2 border-border/30 pl-3 font-sans text-xs leading-relaxed">
                 {quoted}
               </pre>
             ))}
@@ -396,7 +396,6 @@ function EmailSheet({
       if (result.ok) {
         toast.success('Reply sent')
         setReplyBody('')
-        // Refresh outbound so the new reply bubble appears immediately
         getOutboundMessages(email.id).then(setOutbound).catch(() => {})
         onReplied(new Date().toISOString())
       } else {
@@ -405,7 +404,6 @@ function EmailSheet({
     })
   }
 
-  // Merge inbound thread + outbound messages, sort chronologically
   const conversation = [
     ...thread.map((m) => ({ kind: 'inbound' as const, date: m.receivedAt ?? '', data: m })),
     ...outbound.map((m) => ({ kind: 'outbound' as const, date: m.sentAt ?? '', data: m })),
@@ -414,20 +412,23 @@ function EmailSheet({
   return (
     <Sheet open onOpenChange={(open) => { if (!open) onClose() }}>
       <SheetContent className="flex w-full flex-col gap-0 p-0 data-[side=right]:w-[92vw] data-[side=right]:sm:max-w-3xl data-[side=right]:lg:max-w-5xl">
-        <SheetHeader className="border-b px-6 py-4">
-          <SheetTitle className="truncate text-base">{email.subject || '(no subject)'}</SheetTitle>
-          <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 text-xs">
+        {/* Header */}
+        <SheetHeader className="border-b border-border/60 px-6 py-4">
+          <SheetTitle className="truncate text-base font-semibold">{email.subject || '(no subject)'}</SheetTitle>
+          <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 text-xs">
             <span>
               From:{' '}
               <span className="text-foreground font-medium">
                 {email.fromName ? `${email.fromName} <${email.fromEmail}>` : email.fromEmail}
               </span>
             </span>
-            <span>·</span>
-            <span>To: <span className="text-foreground">{email.toEmail}</span></span>
+            <span className="text-border">·</span>
+            <span>
+              To: <span className="text-foreground">{email.toEmail}</span>
+            </span>
             {email.connectionLabel && (
               <>
-                <span>·</span>
+                <span className="text-border">·</span>
                 <Badge variant="secondary" className="text-xs font-normal">
                   {email.connectionLabel}
                 </Badge>
@@ -435,17 +436,17 @@ function EmailSheet({
             )}
           </div>
           {/* Category row */}
-          <div className="mt-2 flex flex-wrap gap-1.5">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {CATEGORIES.filter((c) => c.value !== 'none').map((cat) => {
               const active = email.category === cat.value
               return (
                 <button
                   key={cat.value}
                   onClick={() => onCategoryChange(email.id, cat.value)}
-                  className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs font-medium transition-all ${
+                  className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium transition-all duration-200 ${
                     active
                       ? cat.badge
-                      : 'border-border text-muted-foreground hover:border-muted-foreground/40'
+                      : 'border-border text-muted-foreground hover:border-muted-foreground/40 hover:bg-muted/30'
                   }`}
                 >
                   {cat.icon}
@@ -457,7 +458,7 @@ function EmailSheet({
         </SheetHeader>
 
         {/* Telegram-style conversation thread */}
-        <div className="min-h-0 flex-1 overflow-auto px-4 py-4 space-y-2">
+        <div className="min-h-0 flex-1 overflow-auto px-4 py-5 space-y-3">
           {conversation.length === 0 && (
             <p className="text-muted-foreground text-center text-sm py-8">Loading conversation…</p>
           )}
@@ -467,12 +468,12 @@ function EmailSheet({
               return (
                 <div key={`out-${msg.id}`} className="flex justify-end">
                   <div className="max-w-[80%]">
-                    <div className="rounded-2xl rounded-tr-sm border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-sm">
+                    <div className="rounded-2xl rounded-tr-md border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-sm shadow-sm shadow-blue-500/5">
                       <pre className="text-foreground whitespace-pre-wrap font-sans text-sm leading-relaxed">
                         {msg.body ?? '(empty)'}
                       </pre>
                     </div>
-                    <p className="mt-1 text-right text-xs text-muted-foreground pr-1">
+                    <p className="mt-1.5 text-right text-xs text-muted-foreground pr-1">
                       {msg.fromEmail ? `${msg.fromEmail} · ` : ''}{formatDate(msg.sentAt)}
                     </p>
                   </div>
@@ -486,15 +487,15 @@ function EmailSheet({
               <div key={`in-${msg.id}`} className="flex justify-start">
                 <div className="max-w-[80%]">
                   <div
-                    className={`rounded-2xl rounded-tl-sm border px-4 py-3 text-sm transition-colors ${
+                    className={`rounded-2xl rounded-tl-md border px-4 py-3 text-sm transition-colors ${
                       isHighlighted
-                        ? 'border-primary/40 bg-primary/5'
+                        ? 'border-blue-500/30 bg-blue-500/5'
                         : 'border-border bg-card'
                     }`}
                   >
                     <InboundBody bodyText={msg.bodyText} bodyHtml={msg.bodyHtml} />
                   </div>
-                  <p className="mt-1 text-left text-xs text-muted-foreground pl-1">
+                  <p className="mt-1.5 text-left text-xs text-muted-foreground pl-1">
                     {msg.fromName || msg.fromEmail} · {formatDate(msg.receivedAt)}
                   </p>
                 </div>
@@ -505,13 +506,13 @@ function EmailSheet({
         </div>
 
         {/* Reply form */}
-        <div className="border-t px-6 py-4 space-y-3">
-          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="border-t border-border/60 bg-muted/10 px-6 py-4 space-y-3">
+          <Label className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Reply from {email.connectionFromEmail ?? email.toEmail}
           </Label>
           <Textarea
             placeholder="Write your reply..."
-            className="min-h-32 resize-none"
+            className="min-h-32 resize-none border-border/60 bg-card focus-visible:border-blue-500/50 focus-visible:ring-blue-500/20 transition-colors"
             value={replyBody}
             onChange={(e) => setReplyBody(e.target.value)}
             disabled={sending}
@@ -561,15 +562,15 @@ function FilteredKeywordsDialog({
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Filter keywords</DialogTitle>
+          <DialogTitle className="font-semibold">Filter keywords</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-sm leading-relaxed">
             Emails containing any of these keywords (in subject or body) will be moved to the
             Filtered tab. One keyword per line or separated by commas.
           </p>
           <Textarea
-            className="min-h-32 resize-none font-mono text-sm"
+            className="min-h-32 resize-none border-border/60 bg-card font-mono text-sm focus-visible:border-blue-500/50 transition-colors"
             placeholder={"warmup\ntest email\nhello world"}
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -608,7 +609,7 @@ function LastInteractionCell({ row }: { row: InboundRow }) {
       ) : (
         <IconArrowDown className="size-3 shrink-0 text-emerald-400" />
       )}
-      <span className="text-muted-foreground text-sm">{formatDate(date)}</span>
+      <span className="text-muted-foreground text-sm tabular-nums">{formatDate(date)}</span>
     </div>
   )
 }
@@ -643,76 +644,89 @@ function InboxTable({
   const sorted = sortRows(rows, sortKey, sortDir, showLastInteraction)
 
   return (
-    <Card>
+    <Card className="border-border/60 overflow-hidden">
       <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-6" />
-              <SortableHead label="From" sortKey="from" current={sortKey} dir={sortDir} onSort={handleSort} />
-              <SortableHead label="Subject" sortKey="subject" current={sortKey} dir={sortDir} onSort={handleSort} />
-              <SortableHead label="Category" sortKey="category" current={sortKey} dir={sortDir} onSort={handleSort} className="w-40" />
-              <SortableHead label="Mailbox" sortKey="mailbox" current={sortKey} dir={sortDir} onSort={handleSort} />
-              <SortableHead
-                label={showLastInteraction ? 'Last interaction' : 'Received'}
-                sortKey="date"
-                current={sortKey}
-                dir={sortDir}
-                onSort={handleSort}
-              />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sorted.map((row) => (
-              <TableRow
-                key={row.id}
-                className="cursor-pointer"
-                onClick={() => onRowClick(row)}
-              >
-                <TableCell className="pr-0">
-                  {row.isRead ? (
-                    <IconMailOpened className="text-muted-foreground size-4" />
-                  ) : (
-                    <IconMail className="text-primary size-4" />
-                  )}
-                </TableCell>
-                <TableCell>
-                  <p className={`text-sm leading-tight ${!row.isRead ? 'font-semibold' : 'font-normal'}`}>
-                    {row.fromName || row.fromEmail}
-                  </p>
-                  {row.fromName && (
-                    <p className="text-muted-foreground text-xs">{row.fromEmail}</p>
-                  )}
-                </TableCell>
-                <TableCell className="max-w-72 truncate text-sm">
-                  {row.subject || <span className="text-muted-foreground/40">(no subject)</span>}
-                </TableCell>
-                <TableCell>
-                  <CategoryPicker
-                    value={row.category}
-                    onChange={(cat) => onCategoryChange(row.id, cat)}
-                  />
-                </TableCell>
-                <TableCell>
-                  {row.connectionLabel ? (
-                    <Badge variant="secondary" className="text-xs font-normal">
-                      {row.connectionLabel}
-                    </Badge>
-                  ) : (
-                    <span className="text-muted-foreground/40 text-sm">—</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {showLastInteraction ? (
-                    <LastInteractionCell row={row} />
-                  ) : (
-                    <span className="text-muted-foreground text-sm">{formatDate(row.receivedAt)}</span>
-                  )}
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/20">
+                <TableHead className="w-8 pl-4" />
+                <SortableHead label="From" sortKey="from" current={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableHead label="Subject" sortKey="subject" current={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableHead label="Category" sortKey="category" current={sortKey} dir={sortDir} onSort={handleSort} className="w-40" />
+                <SortableHead label="Mailbox" sortKey="mailbox" current={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableHead
+                  label={showLastInteraction ? 'Last interaction' : 'Received'}
+                  sortKey="date"
+                  current={sortKey}
+                  dir={sortDir}
+                  onSort={handleSort}
+                />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {sorted.map((row) => {
+                const isUnread = !row.isRead
+                return (
+                  <TableRow
+                    key={row.id}
+                    className={[
+                      'cursor-pointer transition-colors',
+                      isUnread
+                        ? 'border-l-2 border-l-blue-500 bg-blue-500/[0.04] dark:bg-blue-500/[0.06] hover:bg-blue-500/[0.08] dark:hover:bg-blue-500/[0.1]'
+                        : 'border-l-2 border-l-transparent hover:bg-muted/25 dark:hover:bg-foreground/[0.04]',
+                    ].join(' ')}
+                    onClick={() => onRowClick(row)}
+                  >
+                    <TableCell className="pl-4">
+                      {row.isRead ? (
+                        <IconMailOpened className="text-muted-foreground size-4" />
+                      ) : (
+                        <div className="relative">
+                          <IconMail className="text-blue-500 size-4" />
+                          <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-blue-500 ring-2 ring-card" />
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <p className={`text-sm leading-tight ${isUnread ? 'font-semibold' : 'font-normal'}`}>
+                        {row.fromName || row.fromEmail}
+                      </p>
+                      {row.fromName && (
+                        <p className="text-muted-foreground text-xs">{row.fromEmail}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-72 truncate text-sm">
+                      {row.subject || <span className="text-muted-foreground/30">(no subject)</span>}
+                    </TableCell>
+                    <TableCell>
+                      <CategoryPicker
+                        value={row.category}
+                        onChange={(cat) => onCategoryChange(row.id, cat)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {row.connectionLabel ? (
+                        <Badge variant="secondary" className="text-xs font-normal">
+                          {row.connectionLabel}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground/30 text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {showLastInteraction ? (
+                        <LastInteractionCell row={row} />
+                      ) : (
+                        <span className="text-muted-foreground text-sm tabular-nums">{formatDate(row.receivedAt)}</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   )
@@ -785,10 +799,22 @@ export function InboxView({
 
   return (
     <div className="space-y-6">
+      {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Inbox</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <div className="flex items-center gap-3">
+            <div className="relative flex size-9 items-center justify-center rounded-xl bg-blue-500/10">
+              <div className="absolute inset-0 rounded-xl bg-blue-500/15 blur-md" />
+              <IconMailbox className="text-blue-400 relative size-[18px]" />
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Inbox</h1>
+            {unreadCount > 0 && (
+              <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums">
+                {unreadCount} unread
+              </span>
+            )}
+          </div>
+          <p className="text-muted-foreground mt-1.5 ml-12 text-sm">
             All incoming email across your connected mailboxes.
           </p>
         </div>
@@ -819,22 +845,23 @@ export function InboxView({
 
       {/* Search */}
       <div className="relative">
-        <IconSearch className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+        <IconSearch className="text-muted-foreground absolute left-3.5 top-1/2 size-4 -translate-y-1/2" />
         <Input
-          className="pl-9"
+          className="pl-10 border-border/60 bg-card focus-visible:border-blue-500/50 focus-visible:ring-blue-500/20 transition-colors"
           placeholder="Search by sender, subject, or content..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
+      {/* Tabs */}
       <Tabs defaultValue="inbox">
-        <TabsList>
+        <TabsList variant="line" className="border-b border-border/60">
           <TabsTrigger value="inbox" className="gap-1.5">
-            <IconMailbox className="size-3.5" />
+            <IconMail className="size-3.5" />
             Inbox
             {unreadCount > 0 && (
-              <span className="bg-primary/15 text-primary rounded px-1.5 py-0.5 text-xs font-medium">
+              <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg px-1.5 py-0.5 text-xs font-medium tabular-nums transition-colors">
                 {unreadCount}
               </span>
             )}
@@ -843,7 +870,7 @@ export function InboxView({
             <IconCircleCheck className="size-3.5" />
             Interested
             {interested.length > 0 && (
-              <span className="bg-emerald-500/15 text-emerald-400 rounded px-1.5 py-0.5 text-xs font-medium">
+              <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg px-1.5 py-0.5 text-xs font-medium tabular-nums transition-colors">
                 {interested.length}
               </span>
             )}
@@ -852,14 +879,14 @@ export function InboxView({
             <IconFlame className="size-3.5" />
             Filtered
             {filtered.length > 0 && (
-              <span className="bg-orange-500/15 text-orange-400 rounded px-1.5 py-0.5 text-xs font-medium">
+              <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-lg px-1.5 py-0.5 text-xs font-medium tabular-nums transition-colors">
                 {filtered.length}
               </span>
             )}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="inbox" className="mt-4">
+        <TabsContent value="inbox" className="mt-5">
           <InboxTable
             rows={inbox}
             emptyLabel="inbox"
@@ -868,7 +895,7 @@ export function InboxView({
           />
         </TabsContent>
 
-        <TabsContent value="interested" className="mt-4">
+        <TabsContent value="interested" className="mt-5">
           <InboxTable
             rows={interested}
             emptyLabel="interested"
@@ -878,7 +905,7 @@ export function InboxView({
           />
         </TabsContent>
 
-        <TabsContent value="filtered" className="mt-4">
+        <TabsContent value="filtered" className="mt-5">
           <InboxTable
             rows={filtered}
             emptyLabel="filtered"
@@ -897,7 +924,6 @@ export function InboxView({
             .sort((a, b) => (a.receivedAt ?? '').localeCompare(b.receivedAt ?? ''))}
           onClose={() => setSelectedEmail(null)}
           onReplied={(repliedAt) => {
-            // Keep the sheet open — just update repliedAt/isRead in the row
             setLocalEmails((prev) =>
               prev.map((e) =>
                 e.id === selectedEmail.id ? { ...e, repliedAt, isRead: true } : e,

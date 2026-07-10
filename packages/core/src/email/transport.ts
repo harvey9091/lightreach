@@ -69,6 +69,27 @@ function htmlToText(html: string): string {
     .trim();
 }
 
+/** Convert a plain-text string with line breaks into minimal HTML that preserves paragraph spacing. */
+export function textToHtml(text: string): string {
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+
+  const withBreaks = escaped
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{2,}/g, "</p><p>")
+    .replace(/\n/g, "<br>")
+
+  return `<p>${withBreaks}</p>`
+}
+
+function isPlainText(html: string): boolean {
+  return !/<[a-z][\s\S]*>/i.test(html)
+}
+
 /** Build a Message-ID rooted at the sending domain instead of a non-routable placeholder. */
 export function buildMessageId(fromEmail: string, uuid: string): string {
   const domain = fromEmail.split("@")[1]?.trim() || "localhost";
@@ -133,6 +154,35 @@ export async function verifyConnection(
 }
 
 /**
+ * Write a minimal RFC 5322 .eml file capturing the outbound headers + body so
+ * it can be inspected against preview/gmail delivery to confirm spacing is
+ * preserved.
+ */
+function writeEml(messageId: string, subject: string, html: string, to: string, from: string): void {
+  const emlDir = '/tmp/kilo/eml'
+  try {
+    import('node:fs/promises').then(async ({ mkdir, writeFile }) => {
+      try { await mkdir(emlDir, { recursive: true }) } catch {}
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const safeId = messageId.replace(/[<>\s]/g, '_').slice(0, 60)
+      const path = `${emlDir}/${timestamp}_${safeId}.eml`
+      const content = [
+        `From: ${from}`,
+        `To: ${to}`,
+        `Subject: ${subject}`,
+        `Content-Type: text/html; charset=utf-8`,
+        ``,
+        html,
+      ].join('\n') + '\n'
+      await writeFile(path, content, 'utf-8')
+      console.log(`[Lightreach][eml] wrote ${path}`)
+    })
+  } catch (err) {
+    console.log(`[Lightreach][eml] failed to write .eml:`, err instanceof Error ? err.message : String(err))
+  }
+}
+
+/**
  * Send a single email through an SMTP connection.
  * Throws on failure — the caller should catch and update the message status.
  */
@@ -143,12 +193,18 @@ export async function sendMail(
   const transport = buildTransport(config);
 
   try {
+    const isHtmlActuallyText = isPlainText(payload.html)
+    const finalHtml = isHtmlActuallyText ? textToHtml(payload.html) : payload.html
+    const finalText = payload.text ?? htmlToText(finalHtml)
+    console.log(`[Lightreach][sendMail] msgId=${payload.messageId} to=${payload.to} isPlainTextfallback=${isHtmlActuallyText} finalHtml_len=${finalHtml.length} payload.html_len=${payload.html.length} payload.html=${JSON.stringify(payload.html.substring(0, 300))}`)
+
     const mailOptions: SendMailOptions = {
       from: `"${sanitizeHeaderValue(payload.fromName)}" <${payload.fromEmail}>`,
       to: payload.to,
       subject: payload.subject,
-      html: payload.html,
-      text: payload.text ?? htmlToText(payload.html),
+      html: finalHtml,
+      text: finalText,
+
       replyTo: payload.replyTo,
       messageId: payload.messageId,
       inReplyTo: payload.inReplyTo,
@@ -156,6 +212,13 @@ export async function sendMail(
     };
 
     const info = await transport.sendMail(mailOptions);
+    writeEml(
+      payload.messageId ?? info.messageId,
+      payload.subject,
+      finalHtml,
+      payload.to,
+      `"${sanitizeHeaderValue(payload.fromName)}" <${payload.fromEmail}>`,
+    )
     return { messageId: info.messageId as string };
   } finally {
     transport.close();

@@ -135,19 +135,19 @@ const emptyForm: FormValues = {
 function statusBadge(status: string) {
   if (status === 'active')
     return (
-      <Badge className="bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/15">
+      <Badge className="bg-success/10 text-success">
         Active
       </Badge>
     )
   if (status === 'paused')
     return (
-      <Badge className="bg-amber-500/15 text-amber-400 hover:bg-amber-500/15">
+      <Badge className="bg-warning/10 text-warning">
         Paused
       </Badge>
     )
   if (status === 'error')
     return (
-      <Badge className="bg-red-500/15 text-red-400 hover:bg-red-500/15">
+      <Badge className="bg-destructive/10 text-destructive">
         Error
       </Badge>
     )
@@ -159,9 +159,9 @@ function dnsRecordRow(label: string, ok: boolean) {
     <div key={label} className="flex items-center justify-between gap-4 text-xs">
       <span>{label}</span>
       {ok ? (
-        <IconCheck className="size-3.5 text-emerald-400" />
+        <IconCheck className="size-3.5 text-success" />
       ) : (
-        <IconX className="size-3.5 text-red-400" />
+        <IconX className="size-3.5 text-destructive" />
       )}
     </div>
   )
@@ -171,9 +171,9 @@ function dnsBadge(dns: DnsRecords) {
   if (!dns) return <Badge variant="secondary">Not checked</Badge>
 
   const badge = dns.valid ? (
-    <Badge className="bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/15">Valid</Badge>
+    <Badge className="bg-success/10 text-success">Valid</Badge>
   ) : (
-    <Badge className="bg-red-500/15 text-red-400 hover:bg-red-500/15">Missing</Badge>
+    <Badge className="bg-destructive/10 text-destructive">Missing</Badge>
   )
 
   return (
@@ -288,214 +288,241 @@ function ConnectionDialog({ open, onOpenChange, editConnection }: ConnectionDial
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit mailbox' : 'Add mailbox'}</DialogTitle>
         </DialogHeader>
-        <form id="connection-form" onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-1.5">
-            <Label htmlFor="conn-label">Label</Label>
-            <Input
-              id="conn-label"
-              placeholder="Work Gmail"
-              value={form.label}
-              onChange={(e) => set('label', e.target.value)}
-              required
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+        <form id="connection-form" onSubmit={handleSubmit}>
+          <div className="grid gap-4">
             <div className="grid gap-1.5">
-              <Label htmlFor="conn-fromName">From name</Label>
+              <Label htmlFor="conn-label" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Label
+              </Label>
               <Input
-                id="conn-fromName"
-                placeholder="Jane Smith"
-                value={form.fromName}
-                onChange={(e) => set('fromName', e.target.value)}
+                id="conn-label"
+                placeholder="Work Gmail"
+                value={form.label}
+                onChange={(e) => set('label', e.target.value)}
                 required
               />
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="conn-fromEmail">From email</Label>
-              <Input
-                id="conn-fromEmail"
-                type="email"
-                placeholder="jane@domain.com"
-                value={form.fromEmail}
-                onChange={(e) => set('fromEmail', e.target.value)}
-                required
-              />
-            </div>
-          </div>
-          <div className="grid gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="conn-smtpHost">SMTP host</Label>
-              <Input
-                id="conn-smtpHost"
-                placeholder="smtp.gmail.com"
-                value={form.smtpHost}
-                onChange={(e) => set('smtpHost', e.target.value)}
-                required
-              />
-            </div>
-            <div className="flex items-end gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
-                <Label htmlFor="conn-smtpPort">Port</Label>
+                <Label htmlFor="conn-fromName" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  From name
+                </Label>
                 <Input
-                  id="conn-smtpPort"
-                  type="number"
-                  className="w-24"
-                  value={form.smtpPort}
-                  onChange={(e) => set('smtpPort', Number(e.target.value))}
+                  id="conn-fromName"
+                  placeholder="Jane Smith"
+                  value={form.fromName}
+                  onChange={(e) => set('fromName', e.target.value)}
                   required
                 />
               </div>
-              <div className="flex items-center gap-2 pb-2">
-                <Switch
-                  id="conn-smtpSecure"
-                  checked={form.smtpSecure}
-                  onCheckedChange={(val) => set('smtpSecure', val)}
-                />
-                <Label htmlFor="conn-smtpSecure" className="cursor-pointer font-normal">
-                  TLS (port 465)
+              <div className="grid gap-1.5">
+                <Label htmlFor="conn-fromEmail" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  From email
                 </Label>
+                <Input
+                  id="conn-fromEmail"
+                  type="email"
+                  placeholder="jane@domain.com"
+                  value={form.fromEmail}
+                  onChange={(e) => set('fromEmail', e.target.value)}
+                  required
+                />
               </div>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+
+            <div className="border-t border-border pt-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">SMTP</p>
+              <div className="grid gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="conn-smtpHost" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    SMTP host
+                  </Label>
+                  <Input
+                    id="conn-smtpHost"
+                    placeholder="smtp.gmail.com"
+                    value={form.smtpHost}
+                    onChange={(e) => set('smtpHost', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex items-end gap-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="conn-smtpPort" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Port
+                    </Label>
+                    <Input
+                      id="conn-smtpPort"
+                      type="number"
+                      className="w-24"
+                      value={form.smtpPort}
+                      onChange={(e) => set('smtpPort', Number(e.target.value))}
+                      required
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pb-2">
+                    <Switch
+                      id="conn-smtpSecure"
+                      checked={form.smtpSecure}
+                      onCheckedChange={(val) => set('smtpSecure', val)}
+                    />
+                    <Label htmlFor="conn-smtpSecure" className="cursor-pointer font-normal">
+                      TLS (port 465)
+                    </Label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="conn-smtpUser" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Username
+                </Label>
+                <Input
+                  id="conn-smtpUser"
+                  placeholder="jane@domain.com"
+                  value={form.smtpUser}
+                  onChange={(e) => set('smtpUser', e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="conn-smtpPass" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Password
+                  {isEdit && (
+                    <span className="text-muted-foreground ml-1.5 text-xs font-normal normal-case tracking-normal">
+                      leave blank to keep
+                    </span>
+                  )}
+                </Label>
+                <Input
+                  id="conn-smtpPass"
+                  type="password"
+                  placeholder={isEdit ? '••••••••' : 'App password'}
+                  value={form.smtpPass}
+                  onChange={(e) => set('smtpPass', e.target.value)}
+                  required={!isEdit}
+                />
+              </div>
+            </div>
+
             <div className="grid gap-1.5">
-              <Label htmlFor="conn-smtpUser">Username</Label>
+              <Label htmlFor="conn-dailyLimit" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Daily send limit
+              </Label>
               <Input
-                id="conn-smtpUser"
-                placeholder="jane@domain.com"
-                value={form.smtpUser}
-                onChange={(e) => set('smtpUser', e.target.value)}
+                id="conn-dailyLimit"
+                type="number"
+                className="w-28"
+                value={form.dailyLimit}
+                onChange={(e) => set('dailyLimit', Number(e.target.value))}
+                min={1}
                 required
               />
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="conn-smtpPass">
-                Password
-                {isEdit && (
-                  <span className="text-muted-foreground ml-1 text-xs font-normal">
-                    leave blank to keep
-                  </span>
-                )}
-              </Label>
-              <Input
-                id="conn-smtpPass"
-                type="password"
-                placeholder={isEdit ? '••••••••' : 'App password'}
-                value={form.smtpPass}
-                onChange={(e) => set('smtpPass', e.target.value)}
-                required={!isEdit}
-              />
-            </div>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="conn-dailyLimit">Daily send limit</Label>
-            <Input
-              id="conn-dailyLimit"
-              type="number"
-              className="w-28"
-              value={form.dailyLimit}
-              onChange={(e) => set('dailyLimit', Number(e.target.value))}
-              min={1}
-              required
-            />
-          </div>
 
-          {/* IMAP section */}
-          <div className="border-t pt-3 grid gap-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium leading-none">IMAP / receive</p>
-                <p className="text-muted-foreground mt-1 text-xs">Track replies and bounces</p>
-              </div>
-              <Switch
-                id="conn-imapEnabled"
-                checked={form.imapEnabled}
-                onCheckedChange={(v) => set('imapEnabled', v)}
-              />
-            </div>
-
-            {form.imapEnabled && (
-              <>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="conn-imapSameAsSmtp"
-                    checked={form.imapSameAsSmtp}
-                    onCheckedChange={(v) => set('imapSameAsSmtp', v)}
-                  />
-                  <Label htmlFor="conn-imapSameAsSmtp" className="cursor-pointer font-normal">
-                    Use same credentials as SMTP
-                  </Label>
+            <div className="border-t border-border pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-sm font-medium leading-snug">IMAP / receive</p>
+                  <p className="text-muted-foreground mt-0.5 text-xs">Track replies and bounces</p>
                 </div>
+                <Switch
+                  id="conn-imapEnabled"
+                  checked={form.imapEnabled}
+                  onCheckedChange={(v) => set('imapEnabled', v)}
+                />
+              </div>
 
-                {!form.imapSameAsSmtp && (
-                  <div className="grid gap-3">
-                    <div className="grid gap-1.5">
-                      <Label htmlFor="conn-imapHost">IMAP host</Label>
-                      <Input
-                        id="conn-imapHost"
-                        placeholder="imap.gmail.com"
-                        value={form.imapHost}
-                        onChange={(e) => set('imapHost', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="flex items-end gap-3">
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="conn-imapPort">Port</Label>
-                        <Input
-                          id="conn-imapPort"
-                          type="number"
-                          className="w-24"
-                          value={form.imapPort}
-                          onChange={(e) => set('imapPort', Number(e.target.value))}
-                          required
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 pb-2">
-                        <Switch
-                          id="conn-imapSecure"
-                          checked={form.imapSecure}
-                          onCheckedChange={(v) => set('imapSecure', v)}
-                        />
-                        <Label htmlFor="conn-imapSecure" className="cursor-pointer font-normal">
-                          TLS (port 993)
-                        </Label>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="conn-imapUser">Username</Label>
-                        <Input
-                          id="conn-imapUser"
-                          placeholder="jane@domain.com"
-                          value={form.imapUser}
-                          onChange={(e) => set('imapUser', e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="conn-imapPass">
-                          Password
-                          {isEdit && (
-                            <span className="text-muted-foreground ml-1 text-xs font-normal">
-                              leave blank to keep
-                            </span>
-                          )}
-                        </Label>
-                        <Input
-                          id="conn-imapPass"
-                          type="password"
-                          placeholder={isEdit ? '••••••••' : 'App password'}
-                          value={form.imapPass}
-                          onChange={(e) => set('imapPass', e.target.value)}
-                          required={!isEdit}
-                        />
-                      </div>
-                    </div>
+              {form.imapEnabled && (
+                <div className="rounded-xl border border-border bg-muted/20 p-3 mt-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Switch
+                      id="conn-imapSameAsSmtp"
+                      checked={form.imapSameAsSmtp}
+                      onCheckedChange={(v) => set('imapSameAsSmtp', v)}
+                    />
+                    <Label htmlFor="conn-imapSameAsSmtp" className="cursor-pointer font-normal">
+                      Use same credentials as SMTP
+                    </Label>
                   </div>
-                )}
-              </>
-            )}
+
+                  {!form.imapSameAsSmtp && (
+                    <div className="grid gap-3">
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="conn-imapHost" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          IMAP host
+                        </Label>
+                        <Input
+                          id="conn-imapHost"
+                          placeholder="imap.gmail.com"
+                          value={form.imapHost}
+                          onChange={(e) => set('imapHost', e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="flex items-end gap-3">
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="conn-imapPort" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Port
+                          </Label>
+                          <Input
+                            id="conn-imapPort"
+                            type="number"
+                            className="w-24"
+                            value={form.imapPort}
+                            onChange={(e) => set('imapPort', Number(e.target.value))}
+                            required
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 pb-2">
+                          <Switch
+                            id="conn-imapSecure"
+                            checked={form.imapSecure}
+                            onCheckedChange={(v) => set('imapSecure', v)}
+                          />
+                          <Label htmlFor="conn-imapSecure" className="cursor-pointer font-normal">
+                            TLS (port 993)
+                          </Label>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="conn-imapUser" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Username
+                          </Label>
+                          <Input
+                            id="conn-imapUser"
+                            placeholder="jane@domain.com"
+                            value={form.imapUser}
+                            onChange={(e) => set('imapUser', e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="conn-imapPass" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Password
+                            {isEdit && (
+                              <span className="text-muted-foreground ml-1.5 text-xs font-normal normal-case tracking-normal">
+                                leave blank to keep
+                              </span>
+                            )}
+                          </Label>
+                          <Input
+                            id="conn-imapPass"
+                            type="password"
+                            placeholder={isEdit ? '••••••••' : 'App password'}
+                            value={form.imapPass}
+                            onChange={(e) => set('imapPass', e.target.value)}
+                            required={!isEdit}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </form>
         <DialogFooter showCloseButton>
@@ -602,15 +629,18 @@ export function ConnectionsView({ connections }: { connections: SafeConnection[]
   const [addOpen, setAddOpen] = useState(false)
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Email Connections</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Email Connections</h1>
+          <p className="text-muted-foreground text-sm">
             Connect SMTP mailboxes to send your campaigns.
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setAddOpen(true)}>
+        <Button
+          className="gap-2 shadow-[0_0_12px_var(--primary-glow)] hover:shadow-[0_0_20px_var(--primary-glow)] transition-shadow duration-300"
+          onClick={() => setAddOpen(true)}
+        >
           <IconMailPlus className="size-4" />
           Add mailbox
         </Button>
@@ -619,27 +649,34 @@ export function ConnectionsView({ connections }: { connections: SafeConnection[]
       {connections.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-20">
-            <div className="bg-primary/10 mb-4 flex size-14 items-center justify-center rounded-full">
-              <IconPlugConnected className="text-primary size-7" />
+            <div
+              className="mb-5 flex size-16 items-center justify-center rounded-full"
+              style={{
+                background: 'var(--primary-soft)',
+                boxShadow: '0 0 24px var(--primary-glow), 0 0 48px var(--primary-soft)',
+              }}
+            >
+              <IconPlugConnected className="size-7 text-primary" />
             </div>
-            <CardTitle className="mb-1 text-base">No mailboxes yet</CardTitle>
-            <CardDescription className="max-w-xs text-center text-sm">
+            <CardTitle className="mb-1.5 text-base">No mailboxes yet</CardTitle>
+            <CardDescription className="max-w-sm text-center text-sm leading-relaxed">
               Add your first SMTP mailbox to start sending. Supports Gmail, Outlook, and any custom
               SMTP provider.
             </CardDescription>
-            <Button className="mt-6 gap-2" onClick={() => setAddOpen(true)}>
+            <div className="accent-line mt-5 mb-6 w-16" />
+            <Button className="gap-2" onClick={() => setAddOpen(true)}>
               <IconMailPlus className="size-4" />
               Add your first mailbox
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card className="rounded-[min(var(--radius-4xl),20px)]">
           <CardContent className="p-0">
             <TooltipProvider>
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="sticky top-0 bg-muted/20 dark:bg-muted/10">
                     <TableHead>Label</TableHead>
                     <TableHead>Email address</TableHead>
                     <TableHead>DNS Records</TableHead>
@@ -651,8 +688,23 @@ export function ConnectionsView({ connections }: { connections: SafeConnection[]
                 </TableHeader>
                 <TableBody>
                   {connections.map((conn) => (
-                    <TableRow key={conn.id}>
-                      <TableCell className="font-medium">{conn.label}</TableCell>
+                    <TableRow key={conn.id} className="group">
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className={
+                              conn.status === 'active'
+                                ? 'status-dot status-dot-success'
+                                : conn.status === 'paused'
+                                  ? 'status-dot status-dot-warning'
+                                  : conn.status === 'error'
+                                    ? 'status-dot status-dot-error'
+                                    : 'status-dot status-dot-neutral'
+                            }
+                          />
+                          {conn.label}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-muted-foreground">{conn.fromEmail}</TableCell>
                       <TableCell>{dnsBadge(conn.dnsRecords)}</TableCell>
                       <TableCell>{conn.dailyLimit}</TableCell>
@@ -660,7 +712,7 @@ export function ConnectionsView({ connections }: { connections: SafeConnection[]
                       <TableCell className="text-muted-foreground text-xs">
                         {formatLastTested(conn.lastTestedAt)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                         <RowActions connection={conn} />
                       </TableCell>
                     </TableRow>

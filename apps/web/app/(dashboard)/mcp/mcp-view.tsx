@@ -13,16 +13,25 @@ import {
 } from '@workspace/ui/components/card'
 import { Badge } from '@workspace/ui/components/badge'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@workspace/ui/components/tooltip'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@workspace/ui/components/tabs'
+import {
   IconRefresh,
   IconEye,
   IconEyeOff,
   IconCopy,
   IconTrash,
   IconCheck,
+  IconKey,
+  IconCode,
+  IconRocket,
 } from '@tabler/icons-react'
 
 // ---------------------------------------------------------------------------
-// Tool catalog — static documentation shown in the "Tool Reference" section
+// Tool catalog
 // ---------------------------------------------------------------------------
 
 type ToolEntry = { name: string; description: string; params: string }
@@ -213,6 +222,8 @@ const TOOL_GROUPS: { group: string; tools: ToolEntry[] }[] = [
 // Component
 // ---------------------------------------------------------------------------
 
+const TOTAL_TOOLS = TOOL_GROUPS.reduce((a, g) => a + g.tools.length, 0)
+
 export function McpView({ hasToken }: { hasToken: boolean }) {
   const [token, setToken] = useState<string | null>(null)
   const [tokenExists, setTokenExists] = useState(hasToken)
@@ -300,8 +311,8 @@ export function McpView({ hasToken }: { hasToken: boolean }) {
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold">MCP Server</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
+        <h1 className="text-title">MCP Server</h1>
+        <p className="text-body mt-1">
           Connect any MCP-compatible AI agent to Lightreach for full data access — create
           leads, launch campaigns, reply to emails, and more.
         </p>
@@ -311,9 +322,24 @@ export function McpView({ hasToken }: { hasToken: boolean }) {
         {/* ── Access Token ─────────────────────────────────────────────── */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">API Token</CardTitle>
-              <Badge variant={tokenExists ? 'default' : 'secondary'}>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <div className="bg-primary/10 flex size-8 shrink-0 items-center justify-center rounded-xl">
+                  <IconKey className="text-primary size-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-heading">API Token</CardTitle>
+                </div>
+              </div>
+              <Badge
+                variant={tokenExists ? 'default' : 'secondary'}
+                className="gap-1.5"
+              >
+                <span
+                  className={`status-dot ${
+                    tokenExists ? 'status-dot-success' : 'status-dot-neutral'
+                  }`}
+                />
                 {tokenExists ? 'Active' : 'Not configured'}
               </Badge>
             </div>
@@ -322,38 +348,55 @@ export function McpView({ hasToken }: { hasToken: boolean }) {
               can fully control Lightreach via the agent.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             {/* Token display */}
             {tokenExists && (
-              <div className="bg-muted flex items-center gap-2 rounded-md p-2">
-                <code className="flex-1 truncate text-xs">
-                  {showing && token ? token : '••••••••••••••••••••••••••••••••••••••••'}
-                </code>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-7 shrink-0"
-                  onClick={handleReveal}
-                  disabled={isPending}
-                  aria-label={showing ? 'Hide token' : 'Reveal token'}
-                >
-                  {showing ? <IconEyeOff className="size-3.5" /> : <IconEye className="size-3.5" />}
-                </Button>
-                {showing && token && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-7 shrink-0"
-                    onClick={() => handleCopy(token)}
-                    aria-label="Copy token"
-                  >
-                    {copied ? (
-                      <IconCheck className="size-3.5 text-green-500" />
-                    ) : (
-                      <IconCopy className="size-3.5" />
-                    )}
-                  </Button>
-                )}
+              <div className="relative">
+                <div className="bg-muted/60 dark:bg-muted/40 flex items-center gap-2 rounded-xl border border-border p-2.5">
+                  <div className="dark:[background:radial-gradient(ellipse_at_center,var(--primary-soft)_0%,transparent_70%)] absolute inset-0 -z-10 rounded-xl" />
+                  <code className="flex-1 truncate font-mono text-xs tracking-wide text-foreground/90">
+                    {showing && token ? token : '••••••••••••••••••••••••••••••••••••••••'}
+                  </code>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        onClick={handleReveal}
+                        disabled={isPending}
+                        aria-label={showing ? 'Hide token' : 'Reveal token'}
+                      >
+                        {showing ? (
+                          <IconEyeOff className="size-3.5" />
+                        ) : (
+                          <IconEye className="size-3.5" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {showing ? 'Hide token' : 'Reveal token'}
+                    </TooltipContent>
+                  </Tooltip>
+                  {showing && token && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          onClick={() => handleCopy(token)}
+                          aria-label="Copy token"
+                        >
+                          {copied ? (
+                            <IconCheck className="size-3.5 text-emerald-400" />
+                          ) : (
+                            <IconCopy className="size-3.5" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Copy token</TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
               </div>
             )}
 
@@ -376,7 +419,7 @@ export function McpView({ hasToken }: { hasToken: boolean }) {
               )}
             </div>
 
-            <p className="text-muted-foreground text-xs">
+            <p className="text-caption">
               Rotating creates a new token and immediately invalidates the old one. Any
               agent configs must be updated with the new token.
             </p>
@@ -386,34 +429,46 @@ export function McpView({ hasToken }: { hasToken: boolean }) {
         {/* ── Connect your agent ───────────────────────────────────────── */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Connect Your Agent</CardTitle>
-            <CardDescription>
-              Add this to your project&apos;s <code className="text-xs">.mcp.json</code> (Claude
-              Code) or <code className="text-xs">claude_desktop_config.json</code> (Claude
-              Desktop).
-            </CardDescription>
+            <div className="flex items-center gap-2.5">
+              <div className="bg-primary/10 flex size-8 shrink-0 items-center justify-center rounded-xl">
+                <IconCode className="text-primary size-4" />
+              </div>
+              <div>
+                <CardTitle className="text-heading">Connect Your Agent</CardTitle>
+                <CardDescription className="mt-0.5">
+                  Add this to your project&apos;s <code className="font-mono text-xs">.mcp.json</code> (Claude
+                  Code) or <code className="font-mono text-xs">claude_desktop_config.json</code> (Claude
+                  Desktop).
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="relative">
-              <pre className="bg-muted overflow-x-auto rounded-md p-3 text-xs leading-relaxed">
+              <pre className="bg-secondary/60 dark:bg-secondary/30 overflow-x-auto rounded-xl border border-border p-3.5 font-mono text-xs leading-relaxed tracking-wide text-foreground/85">
                 {mcpJson}
               </pre>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute top-2 right-2 size-7"
-                onClick={() => handleCopy(mcpJson)}
-                aria-label="Copy config snippet"
-              >
-                {copied ? (
-                  <IconCheck className="size-3.5 text-green-500" />
-                ) : (
-                  <IconCopy className="size-3.5" />
-                )}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    className="absolute top-2.5 right-2.5"
+                    onClick={() => handleCopy(mcpJson)}
+                    aria-label="Copy config snippet"
+                  >
+                    {copied ? (
+                      <IconCheck className="size-3.5 text-emerald-400" />
+                    ) : (
+                      <IconCopy className="size-3.5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Copy config</TooltipContent>
+              </Tooltip>
             </div>
             {!token && (
-              <p className="text-muted-foreground text-xs">
+              <p className="text-caption">
                 Generate a token above to populate the snippet with your actual bearer
                 token.
               </p>
@@ -422,43 +477,76 @@ export function McpView({ hasToken }: { hasToken: boolean }) {
         </Card>
       </div>
 
-      {/* ── Tool Reference ──────────────────────────────────────────────── */}
+      {/* ── Tool Reference ─────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Tool Reference</CardTitle>
-          <CardDescription>
-            All {TOOL_GROUPS.reduce((a, g) => a + g.tools.length, 0)} MCP tools exposed to
-            your agent, grouped by domain.
-          </CardDescription>
+          <div className="flex items-center gap-2.5">
+            <div className="bg-primary/10 flex size-8 shrink-0 items-center justify-center rounded-xl">
+              <IconRocket className="text-primary size-4" />
+            </div>
+            <div>
+              <CardTitle className="text-heading">Tool Reference</CardTitle>
+              <CardDescription className="mt-0.5">
+                All {TOTAL_TOOLS} MCP tools exposed to your agent, grouped by domain.
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            {TOOL_GROUPS.map(({ group, tools }) => (
-              <div key={group}>
-                <h3 className="text-muted-foreground mb-2 text-xs font-semibold uppercase tracking-wider">
+          <Tabs defaultValue={TOOL_GROUPS[0]?.group ?? ''} className="w-full">
+            <TabsList variant="line" className="w-full justify-start rounded-none border-b border-border bg-transparent p-0">
+              {TOOL_GROUPS.map(({ group }) => (
+                <TabsTrigger
+                  key={group}
+                  value={group}
+                  className="rounded-none border-b-2 border-transparent px-3 py-2 text-xs data-active:border-primary data-active:text-foreground"
+                >
                   {group}
-                </h3>
-                <div className="border-border rounded-md border">
-                  {tools.map((tool, idx) => (
-                    <div
-                      key={tool.name}
-                      className={`flex flex-col gap-0.5 px-3 py-2 sm:flex-row sm:items-start sm:gap-4 ${
-                        idx < tools.length - 1 ? 'border-b' : ''
-                      }`}
-                    >
-                      <code className="text-primary w-56 shrink-0 text-xs font-medium">
-                        {tool.name}
-                      </code>
-                      <span className="text-foreground flex-1 text-xs">{tool.description}</span>
-                      <span className="text-muted-foreground w-64 shrink-0 text-right text-xs">
-                        {tool.params}
-                      </span>
-                    </div>
-                  ))}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {TOOL_GROUPS.map(({ group, tools }) => (
+              <TabsContent key={group} value={group} className="mt-4">
+                <div className="overflow-hidden rounded-xl border border-border">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30 dark:bg-muted/10">
+                        <th className="px-4 py-2.5 font-mono text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                          Tool
+                        </th>
+                        <th className="px-4 py-2.5 font-mono text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                          Description
+                        </th>
+                        <th className="px-4 py-2.5 font-mono text-xs font-medium uppercase tracking-wider text-muted-foreground text-right">
+                          Params
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tools.map((tool, idx) => (
+                        <tr
+                          key={tool.name}
+                          className={`border-b border-border last:border-0 transition-colors hover:bg-muted/20 dark:hover:bg-foreground/[0.03] ${
+                            idx % 2 === 0 ? 'bg-transparent' : 'bg-muted/5 dark:bg-muted/[0.03]'
+                          }`}
+                        >
+                          <td className="px-4 py-2.5 font-mono text-xs font-medium text-primary">
+                            {tool.name}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-foreground/80">
+                            {tool.description}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">
+                            {tool.params}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
+              </TabsContent>
             ))}
-          </div>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

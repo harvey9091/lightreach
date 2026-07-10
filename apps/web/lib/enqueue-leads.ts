@@ -41,14 +41,7 @@ export async function enqueueNewLeads(campaign: EnqueueCampaign): Promise<number
 
   if (newLeads.length === 0) return 0
 
-  // Stagger initial sends by the campaign's own jitter window instead of
-  // making every lead due at once — the scheduler paces actual sends within a
-  // tick too, but spacing scheduledAt avoids a huge same-instant backlog if the
-  // app restarts mid-campaign.
   const avgDelayMs = ((campaign.minDelaySeconds + campaign.maxDelaySeconds) / 2) * 1000
-  // Anchor the first send to the next open send-window slot so leads added
-  // outside working hours (e.g. Friday 5pm) queue for the next valid time
-  // (Monday 09:00) rather than a time the scheduler only skips.
   const base = nextSendWindowStart(
     new Date(),
     campaign.timezone,

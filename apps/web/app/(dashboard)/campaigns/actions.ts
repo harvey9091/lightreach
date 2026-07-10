@@ -114,8 +114,6 @@ export async function resumeCampaign(id: number) {
 
   if (pastDue.length > 0) {
     const avgDelayMs = ((campaign.minDelaySeconds + campaign.maxDelaySeconds) / 2) * 1000
-    // Re-anchor to the next open send-window slot so resuming outside working
-    // hours doesn't stamp past-due messages with a time the scheduler skips.
     const base = nextSendWindowStart(
       new Date(now),
       campaign.timezone,

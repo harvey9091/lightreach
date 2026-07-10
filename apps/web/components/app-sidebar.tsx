@@ -16,15 +16,15 @@ import {
   SidebarSeparator,
 } from "@workspace/ui/components/sidebar"
 import {
+  IconBolt,
   IconMail,
-  IconUsers,
-  IconTemplate,
+  IconMailbox,
+  IconFolders,
   IconSend,
   IconSettings,
-  IconLayoutDashboard,
-  IconBolt,
   IconInbox,
-  IconMailbox,
+  IconLayoutDashboard,
+  IconTemplate,
   IconPlug,
 } from "@tabler/icons-react"
 
@@ -34,7 +34,7 @@ const overviewItems = [
 
 const setupItems = [
   { label: "Connections", href: "/connections", icon: IconMail },
-  { label: "Leads", href: "/leads", icon: IconUsers },
+  { label: "Leads", href: "/leads", icon: IconFolders },
   { label: "Sequences", href: "/sequences", icon: IconTemplate },
 ]
 
@@ -57,28 +57,38 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar>
-      {/* Logo / brand */}
-      <SidebarHeader className="h-14 justify-center border-b px-4">
-        <Link href="/dashboard" className="flex items-center gap-2.5">
-          <div className="bg-primary flex size-7 items-center justify-center rounded-md">
+    <Sidebar collapsible="icon" className="border-none">
+      {/* Logo / Workspace */}
+      <SidebarHeader className="h-14 justify-center px-3 border-b border-sidebar-border/40">
+        <Link href="/dashboard" className="flex items-center gap-2.5 group/sidebar-logo">
+          <div className="bg-primary flex size-8 shrink-0 items-center justify-center rounded-lg shadow-[0_0_16px_rgba(59,130,246,0.25)] group-hover/sidebar-logo:shadow-[0_0_20px_rgba(59,130,246,0.35)] transition-all duration-300">
             <IconBolt className="size-4 text-white" />
           </div>
-          <span className="text-sm font-semibold tracking-tight">Lightreach</span>
+          <span className="text-sm font-semibold tracking-tight whitespace-nowrap transition-all duration-200 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden">
+            Lightreach
+          </span>
         </Link>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-2 py-3">
         {/* Overview */}
         <SidebarGroup>
+          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.12em] px-3 text-muted-foreground/70 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden transition-all duration-200">
+            Overview
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {overviewItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={isActive(item.href)}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.href)}
+                    tooltip={item.label}
+                    className="gap-3 h-9 rounded-lg"
+                  >
                     <Link href={item.href}>
-                      <item.icon className="size-4" />
-                      {item.label}
+                      <item.icon className="size-[18px] shrink-0" />
+                      <span className="text-[0.8125rem] font-medium">{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -87,19 +97,26 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarSeparator />
+        <SidebarSeparator className="mx-3 my-2 opacity-50" />
 
         {/* Setup */}
         <SidebarGroup>
-          <SidebarGroupLabel>Setup</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.12em] px-3 text-muted-foreground/70 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden transition-all duration-200">
+            Setup
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {setupItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={isActive(item.href)}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.href)}
+                    tooltip={item.label}
+                    className="gap-3 h-9 rounded-lg"
+                  >
                     <Link href={item.href}>
-                      <item.icon className="size-4" />
-                      {item.label}
+                      <item.icon className="size-[18px] shrink-0" />
+                      <span className="text-[0.8125rem] font-medium">{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -108,19 +125,26 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarSeparator />
+        <SidebarSeparator className="mx-3 my-2 opacity-50" />
 
         {/* Outreach */}
         <SidebarGroup>
-          <SidebarGroupLabel>Outreach</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.12em] px-3 text-muted-foreground/70 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden transition-all duration-200">
+            Outreach
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {outreachItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={isActive(item.href)}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.href)}
+                    tooltip={item.label}
+                    className="gap-3 h-9 rounded-lg"
+                  >
                     <Link href={item.href}>
-                      <item.icon className="size-4" />
-                      {item.label}
+                      <item.icon className="size-[18px] shrink-0" />
+                      <span className="text-[0.8125rem] font-medium">{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -128,19 +152,27 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarSeparator />
+
+        <SidebarSeparator className="mx-3 my-2 opacity-50" />
 
         {/* Integrations */}
         <SidebarGroup>
-          <SidebarGroupLabel>Integrations</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.12em] px-3 text-muted-foreground/70 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden transition-all duration-200">
+            Integrations
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {integrationsItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={isActive(item.href)}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.href)}
+                    tooltip={item.label}
+                    className="gap-3 h-9 rounded-lg"
+                  >
                     <Link href={item.href}>
-                      <item.icon className="size-4" />
-                      {item.label}
+                      <item.icon className="size-[18px] shrink-0" />
+                      <span className="text-[0.8125rem] font-medium">{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -151,13 +183,18 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* Footer */}
-      <SidebarFooter className="border-t">
+      <SidebarFooter className="border-t border-sidebar-border/40 px-2 py-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive("/settings")}>
+            <SidebarMenuButton
+              asChild
+              isActive={isActive("/settings")}
+              tooltip="Settings"
+              className="gap-3 h-9 rounded-lg"
+            >
               <Link href="/settings">
-                <IconSettings className="size-4" />
-                Settings
+                <IconSettings className="size-[18px] shrink-0" />
+                <span className="text-[0.8125rem] font-medium">Settings</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

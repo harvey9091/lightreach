@@ -112,9 +112,6 @@ export function SequenceEditor({
   const vars = makeVars(previewLead)
   const renderedBody = renderVariables(expandSpintax(currentStep.body), vars)
 
-  // When this follow-up threads onto an earlier email, the recipient sees a
-  // "Re:" of the thread's root subject, not this step's own subject field.
-  // Walk back past any consecutive threaded steps to the step that started it.
   let rootIndex = activeStep
   while (rootIndex > 0 && steps[rootIndex]?.sameThread) rootIndex--
   const rootSubject = renderVariables(
@@ -126,8 +123,6 @@ export function SequenceEditor({
     : renderVariables(expandSpintax(currentStep.subject), vars)
 
   function addStep() {
-    // Follow-ups default to living in the same thread — the common cold-outreach
-    // pattern (a bare "Re:" bump on the original email).
     setSteps((prev) => [
       ...prev,
       { subject: '', body: '', delayDays: 1, sameThread: true },
@@ -164,32 +159,36 @@ export function SequenceEditor({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-[min(var(--radius-4xl),20px)] bg-gradient-to-r from-blue-500/10 to-transparent p-6 border border-white/5">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.push('/sequences')}
+            className="shrink-0"
           >
             <IconArrowLeft className="size-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1 className="text-2xl font-bold tracking-tight">
               {editId !== undefined ? 'Edit sequence' : 'New sequence'}
             </h1>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              Build your outreach cadence step by step.
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <Input
-            className="w-64"
+            className="w-64 bg-white/5 border-white/10"
             placeholder="Sequence name"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
           <Button
-            className="gap-2"
+            className="gap-2 bg-blue-600 hover:bg-blue-500"
             onClick={handleSave}
             disabled={isPending}
           >
@@ -200,52 +199,74 @@ export function SequenceEditor({
       </div>
 
       {/* Step progress bar */}
-      <Card>
-        <CardContent className="py-4">
-          <div className="flex items-center gap-0 overflow-x-auto">
-            {steps.map((_, i) => (
-              <div key={i} className="flex items-center">
-                {i > 0 && (
-                  <div className="mx-1 h-px w-8 shrink-0 bg-border" />
-                )}
-                <div className="relative">
-                  <button
-                    onClick={() => setActiveStep(i)}
-                    className={[
-                      'flex size-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-colors',
-                      activeStep === i
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-muted text-muted-foreground hover:border-primary/50 hover:text-foreground',
-                    ].join(' ')}
-                  >
-                    {i + 1}
-                  </button>
-                  {steps.length > 1 && activeStep === i && (
-                    <button
-                      onClick={() => removeStep(i)}
-                      className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] leading-none hover:opacity-80"
-                    >
-                      ×
-                    </button>
+      <Card className="bg-[oklch(0.08_0.018_260)] border-white/5">
+        <CardContent className="py-5">
+          <div className="flex items-center">
+            {steps.map((step, i) => {
+              const isActive = activeStep === i
+              const isCompleted =
+                step.subject.trim() !== '' || step.body.trim() !== ''
+
+              return (
+                <div key={i} className="flex items-center">
+                  {i > 0 && (
+                    <div className="mx-2 h-px w-8 shrink-0 bg-white/10 transition-all duration-300" />
                   )}
+                  <div className="relative">
+                    <button
+                      onClick={() => setActiveStep(i)}
+                      className={[
+                        'flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-all duration-200',
+                        isActive
+                          ? 'border-[3px] border-blue-500 bg-blue-500 text-white shadow-lg shadow-blue-500/25'
+                          : isCompleted
+                            ? 'border-2 border-green-500 bg-green-500 text-white'
+                            : 'border border-white/10 bg-transparent text-muted-foreground hover:border-white/30 hover:text-foreground',
+                      ].join(' ')}
+                    >
+                      {isCompleted && !isActive ? (
+                        <svg
+                          className="size-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      ) : (
+                        i + 1
+                      )}
+                    </button>
+                    {steps.length > 1 && isActive && (
+                      <button
+                        onClick={() => removeStep(i)}
+                        className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-white text-[10px] leading-none hover:bg-red-400 transition-colors"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             {/* Connector before + */}
-            <div className="mx-1 h-px w-8 shrink-0 bg-border" />
+            <div className="mx-2 h-px w-8 shrink-0 bg-white/10 transition-all duration-300" />
 
             {/* Add step button */}
             <button
               onClick={addStep}
-              className="flex size-9 shrink-0 items-center justify-center rounded-full border border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-white/10 text-muted-foreground transition-all hover:border-blue-500 hover:text-blue-500"
             >
               <IconPlus className="size-4" />
             </button>
           </div>
 
           {isFollowUp && (
-            <div className="mt-3 space-y-3">
+            <div className="mt-4 space-y-3">
               <p className="text-muted-foreground text-xs">
                 Send{' '}
                 <input
@@ -255,7 +276,7 @@ export function SequenceEditor({
                   onChange={(e) =>
                     updateStep('delayDays', Math.max(1, Number(e.target.value)))
                   }
-                  className="mx-1 inline-w-12 w-12 rounded border border-border bg-background px-1.5 py-0.5 text-center text-xs"
+                  className="mx-1 inline-w-12 w-12 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-center text-xs"
                 />{' '}
                 {currentStep.delayDays === 1 ? 'day' : 'days'} after email{' '}
                 {activeStep}
@@ -286,29 +307,40 @@ export function SequenceEditor({
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Editor */}
         <div className="space-y-4">
-          <Card>
+          <Card className="bg-[oklch(0.08_0.018_260)]/80 backdrop-blur-xl border-white/5 rounded-[min(var(--radius-4xl),20px)]">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <IconPencil className="size-4" />
-                Email {activeStep + 1}
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                <IconPencil className="size-4 text-blue-400" />
+                <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
+                  Email {activeStep + 1}
+                </span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs">
                 Use{' '}
-                <code className="font-mono text-xs">{'{a|b|c}'}</code> for
-                spintax and{' '}
-                <code className="font-mono text-xs">{'{{variable|fallback}}'}</code>{' '}
+                <code className="font-mono text-xs rounded bg-white/5 px-1 py-0.5">
+                  {'{a|b|c}'}
+                </code>{' '}
+                for spintax and{' '}
+                <code className="font-mono text-xs rounded bg-white/5 px-1 py-0.5">
+                  {'{{variable|fallback}}'}
+                </code>{' '}
                 for personalization.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="subject">Subject line</Label>
+                <Label
+                  htmlFor="subject"
+                  className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+                >
+                  Subject line
+                </Label>
                 <Input
                   id="subject"
                   value={currentStep.subject}
                   onChange={(e) => updateStep('subject', e.target.value)}
                   disabled={threadedSubject}
-                  className="font-mono text-sm"
+                  className="font-mono text-sm bg-white/5 border-white/10"
                   placeholder="Subject with {spintax|options} and {{variables}}"
                 />
                 {threadedSubject && (
@@ -319,12 +351,17 @@ export function SequenceEditor({
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="body">Email body</Label>
+                <Label
+                  htmlFor="body"
+                  className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+                >
+                  Email body
+                </Label>
                 <Textarea
                   id="body"
                   value={currentStep.body}
                   onChange={(e) => updateStep('body', e.target.value)}
-                  className="font-mono min-h-64 resize-y text-sm"
+                  className="font-mono min-h-64 resize-y text-sm bg-white/5 border-white/10"
                   placeholder={`Hi {{firstName|there}},\n\nYour message here...`}
                 />
               </div>
@@ -332,42 +369,57 @@ export function SequenceEditor({
           </Card>
 
           {/* Syntax reference */}
-          <Card className="border-dashed">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Syntax reference</CardTitle>
+          <Card className="bg-[oklch(0.08_0.018_260)] border-white/5 rounded-[min(var(--radius-4xl),20px)]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">
+                Syntax reference
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-xs">
-              <div className="flex items-start gap-2">
-                <Badge variant="secondary" className="font-mono shrink-0">
-                  {'{a|b|c}'}
-                </Badge>
-                <span className="text-muted-foreground">
-                  Random variant picked per send. Nest freely.
-                </span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Badge variant="secondary" className="font-mono shrink-0">
-                  {'{{var}}'}
-                </Badge>
-                <span className="text-muted-foreground">
-                  Replaced with the lead&apos;s field value.
-                </span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Badge variant="secondary" className="font-mono shrink-0">
-                  {'{{var|fallback}}'}
-                </Badge>
-                <span className="text-muted-foreground">
-                  Uses fallback when the field is empty.
-                </span>
+            <CardContent>
+              <div className="grid gap-3">
+                <div className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/5 p-3">
+                  <Badge
+                    variant="secondary"
+                    className="font-mono shrink-0 bg-white/10 text-white border-0"
+                  >
+                    {'{a|b|c}'}
+                  </Badge>
+                  <span className="text-muted-foreground text-xs">
+                    Random variant picked per send. Nest freely.
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/5 p-3">
+                  <Badge
+                    variant="secondary"
+                    className="font-mono shrink-0 bg-white/10 text-white border-0"
+                  >
+                    {'{{var}}'}
+                  </Badge>
+                  <span className="text-muted-foreground text-xs">
+                    Replaced with the lead&apos;s field value.
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/5 p-3">
+                  <Badge
+                    variant="secondary"
+                    className="font-mono shrink-0 bg-white/10 text-white border-0"
+                  >
+                    {'{{var|fallback}}'}
+                  </Badge>
+                  <span className="text-muted-foreground text-xs">
+                    Uses fallback when the field is empty.
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Available variables */}
-          <Card className="border-dashed">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Available variables</CardTitle>
+          <Card className="bg-[oklch(0.08_0.018_260)] border-white/5 rounded-[min(var(--radius-4xl),20px)]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">
+                Available variables
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-1.5">
@@ -383,7 +435,9 @@ export function SequenceEditor({
                     type="button"
                     onClick={() => {
                       const tag = `{{${v}}}`
-                      const el = document.getElementById('body') as HTMLTextAreaElement | null
+                      const el = document.getElementById(
+                        'body'
+                      ) as HTMLTextAreaElement | null
                       if (el) {
                         const start = el.selectionStart
                         const end = el.selectionEnd
@@ -392,13 +446,16 @@ export function SequenceEditor({
                         updateStep('body', next)
                         setTimeout(() => {
                           el.focus()
-                          el.setSelectionRange(start + tag.length, start + tag.length)
+                          el.setSelectionRange(
+                            start + tag.length,
+                            start + tag.length
+                          )
                         }, 0)
                       } else {
                         updateStep('body', currentStep.body + tag)
                       }
                     }}
-                    className="font-mono text-xs rounded border border-border bg-muted px-1.5 py-0.5 text-muted-foreground transition-colors hover:border-primary hover:text-primary cursor-pointer"
+                    className="font-mono text-xs rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-muted-foreground transition-all hover:border-blue-500 hover:text-blue-400 cursor-pointer"
                   >
                     {`{{${v}}}`}
                   </button>
@@ -412,28 +469,28 @@ export function SequenceEditor({
         </div>
 
         {/* Preview */}
-        <Card>
+        <Card className="bg-[oklch(0.08_0.018_260)]/80 backdrop-blur-xl border-white/5 rounded-[min(var(--radius-4xl),20px)]">
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <IconEye className="size-4" />
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <IconEye className="size-4 text-blue-400" />
               Live preview
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-xs">
               Spintax expanded + variables rendered for the selected lead.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Lead selector */}
             <div className="space-y-1.5">
-              <Label>Preview lead</Label>
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Preview lead
+              </Label>
               <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full bg-white/5 border-white/10">
                   <SelectValue placeholder="Select a lead" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="demo">
-                    Sample lead (Sarah Chen)
-                  </SelectItem>
+                  <SelectItem value="demo">Sample lead (Sarah Chen)</SelectItem>
                   {leads.map((l) => (
                     <SelectItem key={l.id} value={String(l.id)}>
                       {l.firstName} {l.lastName}{' '}
@@ -444,27 +501,29 @@ export function SequenceEditor({
               </Select>
             </div>
 
-            <Separator />
+            <Separator className="bg-white/10" />
 
             {/* Rendered email */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <p className="text-muted-foreground mb-0.5 text-xs font-medium uppercase tracking-widest">
+                <p className="text-muted-foreground mb-1.5 text-xs font-medium uppercase tracking-widest">
                   Subject
                 </p>
-                <p className="text-sm font-medium">
-                  {renderedSubject || (
-                    <span className="text-muted-foreground italic">
-                      No subject yet
-                    </span>
-                  )}
-                </p>
+                <div className="rounded-lg border border-white/5 bg-white/5 p-3">
+                  <p className="text-sm font-medium">
+                    {renderedSubject || (
+                      <span className="text-muted-foreground italic">
+                        No subject yet
+                      </span>
+                    )}
+                  </p>
+                </div>
               </div>
               <div>
-                <p className="text-muted-foreground mb-0.5 text-xs font-medium uppercase tracking-widest">
+                <p className="text-muted-foreground mb-1.5 text-xs font-medium uppercase tracking-widest">
                   Body
                 </p>
-                <div className="bg-card rounded-md border p-4">
+                <div className="rounded-lg border border-white/5 bg-white/5 p-4">
                   <pre className="font-sans text-sm leading-relaxed whitespace-pre-wrap">
                     {renderedBody || (
                       <span className="text-muted-foreground italic">

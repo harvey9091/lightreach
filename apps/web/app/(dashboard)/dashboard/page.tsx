@@ -27,7 +27,6 @@ async function getDashboardStats() {
   const leadRow = await db.select({ total: count() }).from(leads)
   const leadCount = leadRow[0]?.total ?? 0
 
-  // Last 7 calendar days (today + 6 days back)
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date()
     d.setDate(d.getDate() - (6 - i))
@@ -66,6 +65,8 @@ export default async function DashboardPage() {
       icon: IconMail,
       href: "/connections",
       color: "text-blue-400",
+      bgColor: "bg-blue-500/10",
+      glowColor: "bg-blue-500/5",
     },
     {
       label: "Active Campaigns",
@@ -74,6 +75,8 @@ export default async function DashboardPage() {
       icon: IconSend,
       href: "/campaigns",
       color: "text-amber-400",
+      bgColor: "bg-amber-500/10",
+      glowColor: "bg-amber-500/5",
     },
     {
       label: "Total Leads",
@@ -82,42 +85,57 @@ export default async function DashboardPage() {
       icon: IconUsers,
       href: "/leads",
       color: "text-violet-400",
+      bgColor: "bg-violet-500/10",
+      glowColor: "bg-violet-500/5",
     },
   ]
 
   return (
-    <div className="space-y-8">
+    <div className="relative z-10 space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
+        <h1 className="text-display">Dashboard</h1>
+        <p className="text-muted-foreground mt-1.5 text-sm">
           Your cold-email command center.
         </p>
+        <div className="accent-line mt-4" />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {stats.map((stat) => (
-          <Link key={stat.href} href={stat.href} className="group">
-            <Card className="hover:border-primary/40 transition-colors">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardDescription>{stat.label}</CardDescription>
-                <stat.icon className={`size-4 ${stat.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stat.value}</div>
-                <p className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
-                  {stat.description}
-                  <IconArrowRight className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
-                </p>
-              </CardContent>
-            </Card>
+          <Link key={stat.href} href={stat.href} className="group block">
+            <div className="glass card card-hover relative overflow-visible rounded-[min(var(--radius-4xl),20px)] p-5 transition-all duration-200 hover:-translate-y-0.5 h-full">
+              <div
+                className={`absolute -inset-0.5 rounded-[inherit] ${stat.glowColor} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
+              />
+              <div className="relative z-0 space-y-3">
+                <div
+                  className={`flex items-center justify-center size-10 rounded-xl ${stat.bgColor}`}
+                >
+                  <stat.icon className={`size-5 ${stat.color}`} />
+                </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">
+                    {stat.label}
+                  </p>
+                  <div className="text-2xl font-bold tracking-tight">
+                    {stat.value}
+                  </div>
+                  <p className="text-muted-foreground mt-1.5 flex items-center gap-1.5 text-xs">
+                    {stat.description}
+                    <IconArrowRight className="size-3 opacity-0 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0.5" />
+                  </p>
+                </div>
+              </div>
+            </div>
           </Link>
         ))}
       </div>
 
       <div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Emails sent</CardTitle>
+        <Card className="hover:shadow-[0_4px_24px_rgba(59,130,246,0.08)] transition-shadow duration-300">
+          <CardHeader className="p-6 pb-4">
+            <CardTitle className="text-heading">Emails sent</CardTitle>
             <CardDescription>Activity over the last 7 days</CardDescription>
           </CardHeader>
           <CardContent>

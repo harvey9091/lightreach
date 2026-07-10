@@ -57,6 +57,8 @@ import {
   IconArrowsSort,
   IconChevronLeft,
   IconChevronRight,
+  IconFileText,
+  IconSparkles,
 } from '@tabler/icons-react'
 import { parseCSV, detectMapping, mapCSVRows, LEAD_FIELDS } from '@workspace/core/csv'
 import type { ColumnMapping } from '@workspace/core/csv'
@@ -95,17 +97,88 @@ const LEAD_FIELD_LABELS: Record<(typeof LEAD_FIELDS)[number], string> = {
   openingLine: 'Opening line',
 }
 
-function statusBadge(status: string) {
-  if (status === 'new') return <Badge variant="secondary">New</Badge>
-  if (status === 'contacted')
-    return <Badge className="bg-blue-500/15 text-blue-400 hover:bg-blue-500/15">Contacted</Badge>
-  if (status === 'replied')
-    return <Badge className="bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/15">Replied</Badge>
-  if (status === 'bounced')
-    return <Badge className="bg-red-500/15 text-red-400 hover:bg-red-500/15">Bounced</Badge>
-  if (status === 'unsubscribed')
-    return <Badge className="bg-amber-500/15 text-amber-400 hover:bg-amber-500/15">Unsubscribed</Badge>
-  return <Badge variant="secondary">{status}</Badge>
+const STATUS_CONFIG: Record<string, { label: string; dot: string; badge: string; text: string }> = {
+  new: {
+    label: 'New',
+    dot: 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.5)]',
+    badge: 'bg-sky-500/10 text-sky-400 border-sky-500/15 hover:bg-sky-500/15',
+    text: 'text-sky-400',
+  },
+  contacted: {
+    label: 'Contacted',
+    dot: 'bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.5)]',
+    badge: 'bg-blue-500/10 text-blue-400 border-blue-500/15 hover:bg-blue-500/15',
+    text: 'text-blue-400',
+  },
+  replied: {
+    label: 'Replied',
+    dot: 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]',
+    badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15 hover:bg-emerald-500/15',
+    text: 'text-emerald-400',
+  },
+  bounced: {
+    label: 'Bounced',
+    dot: 'bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.5)]',
+    badge: 'bg-red-500/10 text-red-400 border-red-500/15 hover:bg-red-500/15',
+    text: 'text-red-400',
+  },
+  unsubscribed: {
+    label: 'Unsubscribed',
+    dot: 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]',
+    badge: 'bg-amber-500/10 text-amber-400 border-amber-500/15 hover:bg-amber-500/15',
+    text: 'text-amber-400',
+  },
+}
+
+const STEP_CONFIG: Record<string, { label: string; desc: string }> = {
+  upload: { label: 'Upload', desc: 'Select your list and CSV file' },
+  map: { label: 'Map Columns', desc: 'Match CSV headers to lead fields' },
+  preview: { label: 'Preview', desc: 'Review before importing' },
+  done: { label: 'Complete', desc: '' },
+}
+
+function getInitials(firstName: string, lastName: string): string {
+  const f = firstName?.charAt(0)?.toUpperCase() ?? ''
+  const l = lastName?.charAt(0)?.toUpperCase() ?? ''
+  return f + l || '?'
+}
+
+const AVATAR_COLORS = [
+  'bg-blue-500/15 text-blue-400',
+  'bg-indigo-500/15 text-indigo-400',
+  'bg-violet-500/15 text-violet-400',
+  'bg-purple-500/15 text-purple-400',
+  'bg-sky-500/15 text-sky-400',
+  'bg-teal-500/15 text-teal-400',
+  'bg-emerald-500/15 text-emerald-400',
+  'bg-cyan-500/15 text-cyan-400',
+]
+
+function getAvatarColor(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]!
+}
+
+// ---------------------------------------------------------------------------
+// Status Badge
+// ---------------------------------------------------------------------------
+
+function StatusBadge({ status }: { status: string }) {
+  const config = STATUS_CONFIG[status]
+  if (!config) {
+    return (
+      <Badge variant="outline" className="rounded-md border-border text-xs text-muted-foreground">
+        {status}
+      </Badge>
+    )
+  }
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium ${config.badge}`}>
+      <span className={`size-1.5 rounded-full ${config.dot}`} />
+      {config.label}
+    </span>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +198,12 @@ function LeadRowActions({ lead }: { lead: LeadRow }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-7" disabled={isPending}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+          disabled={isPending}
+        >
           {isPending ? (
             <IconLoader className="size-4 animate-spin" />
           ) : (
@@ -133,10 +211,10 @@ function LeadRowActions({ lead }: { lead: LeadRow }) {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem variant="destructive" onSelect={handleDelete}>
-          <IconTrash className="size-4" />
-          Delete
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuItem variant="destructive" onSelect={handleDelete} className="gap-2">
+          <IconTrash className="size-3.5 text-destructive" />
+          Delete lead
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -166,27 +244,36 @@ function ListTableRow({
   }
 
   return (
-    <TableRow>
-      <TableCell className="font-medium">{list.name}</TableCell>
-      <TableCell className="text-muted-foreground">
+    <TableRow className="border-border/50 transition-colors hover:bg-muted/30">
+      <TableCell className="py-3.5 font-medium text-sm">{list.name}</TableCell>
+      <TableCell className="py-3.5 text-muted-foreground text-sm">
         {list.leadCount} {list.leadCount === 1 ? 'lead' : 'leads'}
       </TableCell>
-      <TableCell className="text-muted-foreground text-sm">
-        {new Date(list.createdAt).toLocaleDateString()}
+      <TableCell className="py-3.5 text-muted-foreground text-xs">
+        {new Date(list.createdAt).toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        })}
       </TableCell>
-      <TableCell>
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={onAddLead}>
+      <TableCell className="py-3.5">
+        <div className="flex items-center justify-end gap-1.5">
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-lg text-xs" onClick={onAddLead}>
             <IconUserPlus className="size-3.5" />
             Add lead
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={onImport}>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-lg text-xs" onClick={onImport}>
             <IconUpload className="size-3.5" />
             Import CSV
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-7" disabled={isPending}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+                disabled={isPending}
+              >
                 {isPending ? (
                   <IconLoader className="size-4 animate-spin" />
                 ) : (
@@ -194,9 +281,9 @@ function ListTableRow({
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem variant="destructive" onSelect={handleDelete}>
-                <IconTrash className="size-4" />
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem variant="destructive" onSelect={handleDelete} className="gap-2">
+                <IconTrash className="size-3.5 text-destructive" />
                 Delete list
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -240,13 +327,16 @@ function NewListDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>New list</DialogTitle>
+      <DialogContent className="sm:max-w-sm border-border/60">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="text-base font-semibold">Create new list</DialogTitle>
+          <p className="text-xs text-muted-foreground">Organize your leads into a named group.</p>
         </DialogHeader>
-        <form id="new-list-form" onSubmit={handleSubmit} className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label htmlFor="list-name">List name</Label>
+        <form id="new-list-form" onSubmit={handleSubmit} className="grid gap-4 pt-2">
+          <div className="grid gap-2">
+            <Label htmlFor="list-name" className="text-xs font-medium text-foreground-secondary">
+              List name
+            </Label>
             <Input
               id="list-name"
               placeholder="Q2 Prospects"
@@ -254,12 +344,18 @@ function NewListDialog({
               onChange={(e) => setName(e.target.value)}
               required
               autoFocus
+              className="h-9 rounded-lg text-sm"
             />
           </div>
         </form>
         <DialogFooter showCloseButton>
-          <Button type="submit" form="new-list-form" disabled={isPending || !name.trim()}>
-            {isPending && <IconLoader className="mr-1.5 size-4 animate-spin" />}
+          <Button
+            type="submit"
+            form="new-list-form"
+            disabled={isPending || !name.trim()}
+            className="h-9 rounded-lg"
+          >
+            {isPending && <IconLoader className="size-3.5 animate-spin" />}
             Create list
           </Button>
         </DialogFooter>
@@ -324,15 +420,18 @@ function NewLeadDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>New lead</DialogTitle>
+      <DialogContent className="sm:max-w-md border-border/60">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="text-base font-semibold">Add new lead</DialogTitle>
+          <p className="text-xs text-muted-foreground">Manually add a contact to a lead list.</p>
         </DialogHeader>
-        <form id="new-lead-form" onSubmit={handleSubmit} className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label>List</Label>
+        <form id="new-lead-form" onSubmit={handleSubmit} className="grid gap-4 pt-1">
+          <div className="grid gap-2">
+            <Label htmlFor="lead-list" className="text-xs font-medium text-foreground-secondary">
+              List
+            </Label>
             <Select value={listId} onValueChange={setListId} required>
-              <SelectTrigger>
+              <SelectTrigger id="lead-list" className="h-9 rounded-lg">
                 <SelectValue placeholder="Select a list…" />
               </SelectTrigger>
               <SelectContent>
@@ -344,8 +443,10 @@ function NewLeadDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="lead-email">Email (required)</Label>
+          <div className="grid gap-2">
+            <Label htmlFor="lead-email" className="text-xs font-medium text-foreground-secondary">
+              Email <span className="text-muted-foreground">(required)</span>
+            </Label>
             <Input
               id="lead-email"
               type="email"
@@ -354,44 +455,57 @@ function NewLeadDialog({
               onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
+              className="h-9 rounded-lg text-sm"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="lead-first">First name</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="lead-first" className="text-xs font-medium text-foreground-secondary">
+                First name
+              </Label>
               <Input
                 id="lead-first"
                 placeholder="Jane"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
+                className="h-9 rounded-lg text-sm"
               />
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="lead-last">Last name</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="lead-last" className="text-xs font-medium text-foreground-secondary">
+                Last name
+              </Label>
               <Input
                 id="lead-last"
                 placeholder="Smith"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
+                className="h-9 rounded-lg text-sm"
               />
             </div>
           </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="lead-company">Company</Label>
+          <div className="grid gap-2">
+            <Label htmlFor="lead-company" className="text-xs font-medium text-foreground-secondary">
+              Company
+            </Label>
             <Input
               id="lead-company"
               placeholder="Acme Corp"
               value={company}
               onChange={(e) => setCompany(e.target.value)}
+              className="h-9 rounded-lg text-sm"
             />
           </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="lead-opening">Opening line</Label>
+          <div className="grid gap-2">
+            <Label htmlFor="lead-opening" className="text-xs font-medium text-foreground-secondary">
+              Opening line
+            </Label>
             <Input
               id="lead-opening"
               placeholder="Loved your recent post on…"
               value={openingLine}
               onChange={(e) => setOpeningLine(e.target.value)}
+              className="h-9 rounded-lg text-sm"
             />
           </div>
         </form>
@@ -400,8 +514,9 @@ function NewLeadDialog({
             type="submit"
             form="new-lead-form"
             disabled={isPending || !email.trim() || !listId}
+            className="h-9 rounded-lg"
           >
-            {isPending && <IconLoader className="mr-1.5 size-4 animate-spin" />}
+            {isPending && <IconLoader className="size-3.5 animate-spin" />}
             Add lead
           </Button>
         </DialogFooter>
@@ -415,6 +530,8 @@ function NewLeadDialog({
 // ---------------------------------------------------------------------------
 
 type WizardStep = 'upload' | 'map' | 'preview' | 'done'
+
+const WIZARD_STEPS: WizardStep[] = ['upload', 'map', 'preview', 'done']
 
 function ImportWizardDialog({
   open,
@@ -433,9 +550,7 @@ function ImportWizardDialog({
   const [headers, setHeaders] = useState<string[]>([])
   const [rawRows, setRawRows] = useState<Record<string, string>[]>([])
   const [mapping, setMapping] = useState<ColumnMapping>({})
-  const [importResult, setImportResult] = useState<{ inserted: number; skipped: number } | null>(
-    null,
-  )
+  const [importResult, setImportResult] = useState<{ inserted: number; skipped: number } | null>(null)
   const [isPending, startTransition] = useTransition()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -502,31 +617,90 @@ function ImportWizardDialog({
 
   const totalMapped = step === 'preview' ? mapCSVRows(rawRows, mapping).length : 0
 
-  const STEP_LABEL: Record<WizardStep, string> = {
-    upload: 'Step 1 of 3 — Upload',
-    map: 'Step 2 of 3 — Map columns',
-    preview: 'Step 3 of 3 — Preview',
-    done: 'Done',
-  }
+  const currentStepIndex = WIZARD_STEPS.indexOf(step)
+  const progressPct = step === 'done' ? 100 : ((currentStepIndex + 1) / WIZARD_STEPS.length) * 100
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-2xl overflow-y-auto max-h-[90vh]"
+        className="sm:max-w-2xl border-border/60"
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <DialogHeader>
-          <DialogTitle>Import CSV</DialogTitle>
-          <p className="text-muted-foreground text-xs">{STEP_LABEL[step]}</p>
+        <DialogHeader className="space-y-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
+              <IconFileText className="size-4 text-primary" />
+            </div>
+            <div>
+              <DialogTitle className="text-base font-semibold">Import CSV</DialogTitle>
+              {step !== 'done' && (
+                <p className="text-xs text-muted-foreground">{STEP_CONFIG[step]?.desc}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Step indicator */}
+          {step !== 'done' && (
+            <div className="flex items-center gap-1.5 pt-1">
+              {WIZARD_STEPS.filter((s) => s !== 'done').map((s, idx) => {
+                const isActive = s === step
+                const isPast = idx < currentStepIndex
+                return (
+                  <div key={s} className="flex items-center gap-1.5 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <div
+                        className={`flex size-5 items-center justify-center rounded-full text-[10px] font-semibold transition-colors ${
+                          isPast
+                            ? 'bg-primary text-primary-foreground'
+                            : isActive
+                              ? 'bg-primary/15 text-primary ring-1 ring-primary/30'
+                              : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {isPast ? <IconCheck className="size-3" /> : idx + 1}
+                      </div>
+                      <span
+                        className={`hidden sm:inline text-[11px] font-medium transition-colors ${
+                          isActive ? 'text-foreground' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {STEP_CONFIG[s]?.label}
+                      </span>
+                    </div>
+                    {idx < 2 && (
+                      <div className="flex-1 h-px bg-border/60">
+                        <div
+                          className="h-full bg-primary/60 transition-all duration-300"
+                          style={{ width: isPast ? '100%' : '0%' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Progress bar */}
+          {step !== 'done' && (
+            <div className="h-0.5 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary/70 transition-all duration-300 ease-out"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          )}
         </DialogHeader>
 
         {/* Step 1 — Upload */}
         {step === 'upload' && (
-          <div className="grid gap-4">
-            <div className="grid gap-1.5">
-              <Label>Import into list</Label>
+          <div className="grid gap-4 pt-1">
+            <div className="grid gap-2">
+              <Label className="text-xs font-medium text-foreground-secondary">
+                Import into list
+              </Label>
               <Select value={listId} onValueChange={setListId}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9 rounded-lg">
                   <SelectValue placeholder="Select a list…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -541,29 +715,37 @@ function ImportWizardDialog({
             </div>
 
             {listId === 'new' && (
-              <div className="grid gap-1.5">
-                <Label htmlFor="import-list-name">New list name</Label>
+              <div className="grid gap-2">
+                <Label htmlFor="import-list-name" className="text-xs font-medium text-foreground-secondary">
+                  New list name
+                </Label>
                 <Input
                   id="import-list-name"
                   placeholder="Q2 Prospects"
                   value={newListName}
                   onChange={(e) => setNewListName(e.target.value)}
                   autoFocus
+                  className="h-9 rounded-lg text-sm"
                 />
               </div>
             )}
 
-            <div className="grid gap-1.5">
-              <Label htmlFor="import-file">CSV file</Label>
-              <Input
-                ref={fileInputRef}
-                id="import-file"
-                type="file"
-                accept=".csv,text/csv"
-                onChange={handleFileChange}
-              />
+            <div className="grid gap-2">
+              <Label htmlFor="import-file" className="text-xs font-medium text-foreground-secondary">
+                CSV file
+              </Label>
+              <div className="relative">
+                <Input
+                  ref={fileInputRef}
+                  id="import-file"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleFileChange}
+                  className="h-9 rounded-lg text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-primary hover:file:bg-primary/15"
+                />
+              </div>
               {rawRows.length > 0 && (
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-muted-foreground">
                   {rawRows.length} rows · {headers.length} columns detected
                 </p>
               )}
@@ -573,16 +755,24 @@ function ImportWizardDialog({
 
         {/* Step 2 — Map columns */}
         {step === 'map' && (
-          <div className="grid gap-3">
-            <p className="text-muted-foreground text-xs">
-              Map CSV columns to lead fields. Only <strong>Email</strong> is required.
-            </p>
+          <div className="grid gap-3 pt-1">
+            <div className="flex items-start gap-2 rounded-lg bg-muted/30 border border-border/40 p-3">
+              <IconSparkles className="size-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Map CSV columns to lead fields. Only <span className="font-medium text-foreground">Email</span> is required for a successful import.
+              </p>
+            </div>
             {LEAD_FIELDS.map((field) => {
               const isMapped = !!mapping[field]
               const isRequired = field === 'email'
               return (
-                <div key={field} className="grid grid-cols-[160px_1fr_24px] items-center gap-3">
-                  <Label className="text-sm">{LEAD_FIELD_LABELS[field]}</Label>
+                <div
+                  key={field}
+                  className="grid grid-cols-[140px_1fr_28px] items-center gap-3"
+                >
+                  <Label className="text-xs font-medium text-foreground-secondary truncate">
+                    {LEAD_FIELD_LABELS[field]}
+                  </Label>
                   <Select
                     value={mapping[field] ?? '__skip__'}
                     onValueChange={(v) =>
@@ -592,7 +782,7 @@ function ImportWizardDialog({
                       }))
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8 rounded-lg text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -609,7 +799,7 @@ function ImportWizardDialog({
                   ) : isRequired ? (
                     <IconX className="size-4 shrink-0 text-red-400" />
                   ) : (
-                    <IconX className="size-4 shrink-0 text-muted-foreground/30" />
+                    <IconX className="size-4 shrink-0 text-muted-foreground/25" />
                   )}
                 </div>
               )
@@ -619,19 +809,18 @@ function ImportWizardDialog({
 
         {/* Step 3 — Preview */}
         {step === 'preview' && (
-          <div className="grid gap-3">
-            <p className="text-muted-foreground text-xs">
-              {totalMapped} lead{totalMapped !== 1 ? 's' : ''} ready to import. Showing first{' '}
-              {Math.min(5, previewLeads.length)}.
+          <div className="grid gap-3 pt-1">
+            <p className="text-xs text-muted-foreground">
+              {totalMapped} lead{totalMapped !== 1 ? 's' : ''} ready to import. Showing first {Math.min(5, previewLeads.length)}.
             </p>
-            <div className="overflow-x-auto rounded-md border">
+            <div className="overflow-x-auto rounded-lg border border-border/50">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">First</TableHead>
-                    <TableHead className="text-xs">Last</TableHead>
-                    <TableHead className="text-xs">Email</TableHead>
-                    <TableHead className="text-xs">Company</TableHead>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="text-[11px] font-semibold text-muted-foreground h-9">First</TableHead>
+                    <TableHead className="text-[11px] font-semibold text-muted-foreground h-9">Last</TableHead>
+                    <TableHead className="text-[11px] font-semibold text-muted-foreground h-9">Email</TableHead>
+                    <TableHead className="text-[11px] font-semibold text-muted-foreground h-9">Company</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -639,18 +828,18 @@ function ImportWizardDialog({
                     <TableRow>
                       <TableCell
                         colSpan={4}
-                        className="text-muted-foreground py-6 text-center text-xs"
+                        className="text-muted-foreground py-8 text-center text-xs"
                       >
                         No valid rows found. Make sure the Email column is mapped.
                       </TableCell>
                     </TableRow>
                   ) : (
                     previewLeads.map((lead, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-xs">{lead.firstName || '—'}</TableCell>
-                        <TableCell className="text-xs">{lead.lastName || '—'}</TableCell>
-                        <TableCell className="font-mono text-xs">{lead.email}</TableCell>
-                        <TableCell className="text-xs">{lead.company || '—'}</TableCell>
+                      <TableRow key={i} className="border-border/30">
+                        <TableCell className="text-xs py-2.5">{lead.firstName || '—'}</TableCell>
+                        <TableCell className="text-xs py-2.5">{lead.lastName || '—'}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground py-2.5">{lead.email}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground py-2.5">{lead.company || '—'}</TableCell>
                       </TableRow>
                     ))
                   )}
@@ -662,12 +851,14 @@ function ImportWizardDialog({
 
         {/* Done */}
         {step === 'done' && importResult && (
-          <div className="flex flex-col items-center gap-2 py-6">
-            <div className="flex size-12 items-center justify-center rounded-full bg-emerald-500/15">
-              <IconCheck className="size-6 text-emerald-400" />
+          <div className="flex flex-col items-center gap-3 py-8">
+            <div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/15">
+              <div className="flex size-8 items-center justify-center rounded-full bg-emerald-500/15">
+                <IconCheck className="size-5 text-emerald-400" />
+              </div>
             </div>
-            <p className="text-base font-medium">Import complete</p>
-            <p className="text-muted-foreground text-center text-sm">
+            <p className="text-sm font-semibold">Import complete</p>
+            <p className="text-xs text-muted-foreground text-center max-w-[280px]">
               {importResult.inserted} lead{importResult.inserted !== 1 ? 's' : ''} imported
               {importResult.skipped > 0 &&
                 `, ${importResult.skipped} duplicate${importResult.skipped !== 1 ? 's' : ''} skipped`}
@@ -682,27 +873,32 @@ function ImportWizardDialog({
               variant="outline"
               onClick={() => setStep(step === 'map' ? 'upload' : 'map')}
               disabled={isPending}
+              className="h-9 rounded-lg"
             >
               Back
             </Button>
           )}
           {step === 'upload' && (
-            <Button onClick={() => setStep('map')} disabled={!canProceedFromUpload}>
+            <Button onClick={() => setStep('map')} disabled={!canProceedFromUpload} className="h-9 rounded-lg">
               Next
             </Button>
           )}
           {step === 'map' && (
-            <Button onClick={() => setStep('preview')} disabled={!mapping.email}>
+            <Button onClick={() => setStep('preview')} disabled={!mapping.email} className="h-9 rounded-lg">
               Next — Preview
             </Button>
           )}
           {step === 'preview' && (
-            <Button onClick={handleImport} disabled={isPending || totalMapped === 0}>
-              {isPending && <IconLoader className="mr-1.5 size-4 animate-spin" />}
+            <Button onClick={handleImport} disabled={isPending || totalMapped === 0} className="h-9 rounded-lg">
+              {isPending && <IconLoader className="size-3.5 animate-spin" />}
               Import {totalMapped} lead{totalMapped !== 1 ? 's' : ''}
             </Button>
           )}
-          {step === 'done' && <Button onClick={() => onOpenChange(false)}>Close</Button>}
+          {step === 'done' && (
+            <Button onClick={() => onOpenChange(false)} className="h-9 rounded-lg">
+              Close
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -728,28 +924,31 @@ function ManageListsDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Manage lists</DialogTitle>
+      <DialogContent className="sm:max-w-2xl border-border/60">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="text-base font-semibold">Manage lists</DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            View, add leads to, or delete your lead lists.
+          </p>
         </DialogHeader>
         {lists.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <div className="bg-primary/10 mb-4 flex size-14 items-center justify-center rounded-full">
-              <IconUsers className="text-primary size-7" />
+          <div className="flex flex-col items-center justify-center py-14">
+            <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/8 border border-primary/10">
+              <IconUsers className="size-7 text-primary/70" />
             </div>
-            <CardTitle className="mb-1 text-base">No lists yet</CardTitle>
-            <CardDescription className="max-w-xs text-center text-sm">
-              Create a list to start organizing your contacts.
-            </CardDescription>
+            <p className="mb-1 text-sm font-medium">No lists yet</p>
+            <p className="max-w-[260px] text-center text-xs text-muted-foreground leading-relaxed">
+              Create a list to start organizing and tracking your outreach contacts.
+            </p>
           </div>
         ) : (
-          <div className="overflow-y-auto max-h-[60vh] rounded-md border">
+          <div className="overflow-y-auto max-h-[60vh] rounded-lg border border-border/50">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>List name</TableHead>
-                  <TableHead>Leads</TableHead>
-                  <TableHead>Created</TableHead>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-[11px] font-semibold text-muted-foreground h-10">List name</TableHead>
+                  <TableHead className="text-[11px] font-semibold text-muted-foreground h-10">Leads</TableHead>
+                  <TableHead className="text-[11px] font-semibold text-muted-foreground h-10">Created</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -773,7 +972,7 @@ function ManageListsDialog({
 }
 
 // ---------------------------------------------------------------------------
-// Main view
+// Sortable head
 // ---------------------------------------------------------------------------
 
 type SortKey = 'name' | 'email' | 'company' | 'list' | 'status'
@@ -799,23 +998,31 @@ function SortableHead({
     <TableHead>
       <button
         type="button"
-        className="flex items-center gap-1 hover:text-foreground"
+        className={`flex items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors ${
+          isActive
+            ? 'text-foreground'
+            : 'text-muted-foreground hover:text-foreground'
+        }`}
         onClick={() => onSort(sortKey)}
       >
-        {label}
+        <span className="text-[11px] font-semibold uppercase tracking-wider">{label}</span>
         {isActive ? (
           dir === 'asc' ? (
-            <IconArrowUp className="size-3.5" />
+            <IconArrowUp className="size-3.5 text-primary" />
           ) : (
-            <IconArrowDown className="size-3.5" />
+            <IconArrowDown className="size-3.5 text-primary" />
           )
         ) : (
-          <IconArrowsSort className="size-3.5 text-muted-foreground/50" />
+          <IconArrowsSort className="size-3.5 opacity-40" />
         )}
       </button>
     </TableHead>
   )
 }
+
+// ---------------------------------------------------------------------------
+// Main view
+// ---------------------------------------------------------------------------
 
 export function LeadsView({
   lists,
@@ -933,51 +1140,63 @@ export function LeadsView({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Leads</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-0.5">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">Leads</h1>
+          <p className="text-xs text-muted-foreground">
             Manage your lead lists and contacts.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => setManageListsOpen(true)}>
-            <IconFolders className="size-4" />
-            Manage lists
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={() => setAddListOpen(true)}>
-            <IconFolderOpen className="size-4" />
-            New list
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            className="gap-2 h-9 rounded-lg border-border/60"
+            onClick={() => setManageListsOpen(true)}
+          >
+            <IconFolders className="size-4 text-muted-foreground" />
+            <span className="text-sm">Manage lists</span>
           </Button>
           <Button
             variant="outline"
-            className="gap-2"
+            className="gap-2 h-9 rounded-lg border-border/60"
+            onClick={() => setAddListOpen(true)}
+          >
+            <IconFolderOpen className="size-4 text-muted-foreground" />
+            <span className="text-sm">New list</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2 h-9 rounded-lg border-border/60"
             onClick={() => openAddLead()}
             disabled={lists.length === 0}
           >
-            <IconUserPlus className="size-4" />
-            Add lead
+            <IconUserPlus className="size-4 text-muted-foreground" />
+            <span className="text-sm">Add lead</span>
           </Button>
-          <Button className="gap-2" onClick={() => openImport()}>
+          <Button
+            className="gap-2 h-9 rounded-lg shadow-[0_0_12px_rgba(59,130,246,0.15)]"
+            onClick={() => openImport()}
+          >
             <IconUpload className="size-4" />
-            Import CSV
+            <span className="text-sm">Import CSV</span>
           </Button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative max-w-sm flex-1 min-w-[220px]">
-          <IconSearch className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/40 bg-muted/8 p-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <IconSearch className="text-muted-foreground/70 absolute left-3 top-1/2 size-3.5 -translate-y-1/2" />
           <Input
-            className="pl-9"
+            className="h-8 rounded-lg border-border/50 pl-8 text-xs focus:border-primary/40 focus:ring-1 focus:ring-primary/20"
             placeholder="Search by name, email, or company..."
             value={search}
             onChange={(e) => updateSearch(e.target.value)}
           />
         </div>
         <Select value={listFilter} onValueChange={updateListFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="h-8 w-[160px] rounded-lg border-border/50 text-xs">
             <SelectValue placeholder="List" />
           </SelectTrigger>
           <SelectContent>
@@ -990,7 +1209,7 @@ export function LeadsView({
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={updateStatusFilter}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="h-8 w-[150px] rounded-lg border-border/50 text-xs">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -1002,16 +1221,17 @@ export function LeadsView({
             <SelectItem value="unsubscribed">Unsubscribed</SelectItem>
           </SelectContent>
         </Select>
-        <span className="text-muted-foreground ml-auto text-sm">
+        <span className="ml-auto whitespace-nowrap text-[11px] text-muted-foreground tabular-nums">
           {sortedLeads.length} {sortedLeads.length === 1 ? 'lead' : 'leads'}
         </span>
       </div>
 
-      <Card>
+      {/* Table card */}
+      <Card className="border-border/50 overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="hover:bg-transparent border-b border-border/60">
                 <SortableHead
                   label="Name"
                   sortKey="name"
@@ -1053,36 +1273,66 @@ export function LeadsView({
             <TableBody>
               {pagedLeads.length === 0 ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-muted-foreground py-12 text-center text-sm"
-                  >
-                    {leads.length === 0
-                      ? 'No leads yet. Import a CSV to get started.'
-                      : 'No leads match your filters.'}
+                  <TableCell colSpan={6} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="flex size-12 items-center justify-center rounded-2xl bg-muted/40 text-muted-foreground/40">
+                        <IconUsers className="size-6" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground-secondary">
+                          {leads.length === 0
+                            ? 'No leads yet'
+                            : 'No results found'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 max-w-[260px] mx-auto">
+                          {leads.length === 0
+                            ? 'Import a CSV or add a lead manually to get started.'
+                            : 'Try adjusting your search or filters.'}
+                        </p>
+                      </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
-                pagedLeads.map((lead) => (
-                  <TableRow key={lead.id}>
-                    <TableCell className="font-medium">
-                      {[lead.firstName, lead.lastName].filter(Boolean).join(' ') || '—'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {lead.email}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {lead.company || '—'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {listNameMap.get(lead.listId) ?? '—'}
-                    </TableCell>
-                    <TableCell>{statusBadge(lead.status)}</TableCell>
-                    <TableCell>
-                      <LeadRowActions lead={lead} />
-                    </TableCell>
-                  </TableRow>
-                ))
+                pagedLeads.map((lead) => {
+                  const displayName = [lead.firstName, lead.lastName].filter(Boolean).join(' ') || '—'
+                  const initials = getInitials(lead.firstName, lead.lastName)
+                  const avatarColor = getAvatarColor(displayName)
+                  return (
+                    <TableRow
+                      key={lead.id}
+                      className="border-border/30 transition-colors hover:bg-muted/20"
+                    >
+                      <TableCell className="py-3">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${avatarColor}`}
+                          >
+                            {initials}
+                          </div>
+                          <span className="text-sm font-medium truncate max-w-[180px]">
+                            {displayName}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3 text-xs text-muted-foreground font-mono">
+                        {lead.email}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs text-muted-foreground">
+                        {lead.company || <span className="text-muted-foreground/50">—</span>}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs text-muted-foreground">
+                        {listNameMap.get(lead.listId) ?? <span className="text-muted-foreground/50">—</span>}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <StatusBadge status={lead.status} />
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <LeadRowActions lead={lead} />
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
@@ -1090,11 +1340,11 @@ export function LeadsView({
       </Card>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>Rows per page</span>
           <Select value={String(pageSize)} onValueChange={updatePageSize}>
-            <SelectTrigger className="w-[70px]">
+            <SelectTrigger className="h-8 w-[64px] rounded-lg border-border/50 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1107,27 +1357,27 @@ export function LeadsView({
           </Select>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-muted-foreground text-sm">
+          <span className="text-xs text-muted-foreground tabular-nums">
             Page {currentPage} of {totalPages}
           </span>
           <div className="flex gap-1">
             <Button
               variant="outline"
               size="icon"
-              className="size-8"
+              className="size-8 rounded-lg border-border/50"
               disabled={currentPage <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
-              <IconChevronLeft className="size-4" />
+              <IconChevronLeft className="size-3.5" />
             </Button>
             <Button
               variant="outline"
               size="icon"
-              className="size-8"
+              className="size-8 rounded-lg border-border/50"
               disabled={currentPage >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             >
-              <IconChevronRight className="size-4" />
+              <IconChevronRight className="size-3.5" />
             </Button>
           </div>
         </div>

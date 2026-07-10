@@ -8,7 +8,7 @@ import {
   sequenceSteps,
 } from '@workspace/db/schema'
 import { decrypt } from '@workspace/core/crypto'
-import { sendMail, buildMessageId, appendUnsubscribeFooter } from '@workspace/core/email/transport'
+import { sendMail, buildMessageId, appendUnsubscribeFooter, textToHtml } from '@workspace/core/email/transport'
 import { pickNext, isWithinSendWindow, randomDelayMs, startOfDayInTimezone } from '@workspace/core/rotation'
 import { expandSpintax } from '@workspace/core/spintax'
 import { renderVariables } from '@workspace/core/variables'
@@ -253,7 +253,8 @@ async function runTick(): Promise<void> {
         ),
       )
 
-    if (capRow && capRow.count >= msg.dailyCap) continue
+    const sentTodayForCampaign = capRow ? Number(capRow.count) : 0
+    if (sentTodayForCampaign >= (msg.dailyCap ?? Number.MAX_SAFE_INTEGER)) continue
 
     // Load campaign connections (cached per campaign)
     if (!connCache.has(msg.campaignId)) {
@@ -327,6 +328,7 @@ async function runTick(): Promise<void> {
         .where(eq(messages.id, msg.msgId))
       continue
     }
+    console.log(`[Lightreach][tick] message ${msg.msgId} sequenceId=${msg.sequenceId}, stepPosition=${msg.stepPosition}`)
 
     // Load sequence step
     const [step] = await db
@@ -340,12 +342,14 @@ async function runTick(): Promise<void> {
       )
 
     if (!step) {
+      console.log(`[Lightreach][tick] message ${msg.msgId} skipped: sequence step not found (sequenceId=${msg.sequenceId}, position=${msg.stepPosition})`)
       await db
         .update(messages)
         .set({ status: 'skipped' })
         .where(eq(messages.id, msg.msgId))
       continue
     }
+    console.log(`[Lightreach][tick] message ${msg.msgId} step found: subject="${step.subject?.substring(0, 50)}", body length=${step.body?.length}`)
 
     // Render subject + body with spintax and variable substitution
     const vars = {
@@ -394,9 +398,18 @@ async function runTick(): Promise<void> {
       }
     }
 
+    const stepBodyExpanded = expandSpintax(step.body)
+    console.log(`[Lightreach][body-pipeline] msg=${msg.msgId} stepBodyExpanded=${JSON.stringify(stepBodyExpanded)}`)
+    const stepBodyRendered = renderVariables(stepBodyExpanded, vars)
+    console.log(`[Lightreach][body-pipeline] msg=${msg.msgId} stepBodyRendered=${JSON.stringify(stepBodyRendered)}`)
+    const stepBodyHtml = textToHtml(stepBodyRendered)
+    console.log(`[Lightreach][body-pipeline] msg=${msg.msgId} stepBodyHtml=${JSON.stringify(stepBodyHtml)}`)
+    const renderedBody = appendUnsubscribeFooter(stepBodyHtml)
+    console.log(`[Lightreach][body-pipeline] msg=${msg.msgId} renderedBody=${JSON.stringify(renderedBody)}`)
+
     const renderedSubject =
       threadSubject ?? renderVariables(expandSpintax(step.subject), vars)
-    const renderedBody = appendUnsubscribeFooter(renderVariables(expandSpintax(step.body), vars))
+    console.log(`[Lightreach][body-pipeline] msg=${msg.msgId} renderedSubject=${JSON.stringify(renderedSubject)}`)
 
     // Decrypt SMTP password
     let smtpPass: string
@@ -450,6 +463,7 @@ async function runTick(): Promise<void> {
 
     // Send email
     try {
+      console.log(`[Lightreach][tick] sending message ${msg.msgId} to ${lead.email} via connection ${pickResult.connectionId}`)
       await sendMail(
         {
           smtpHost: chosenConn.smtpHost,
@@ -469,6 +483,7 @@ async function runTick(): Promise<void> {
           references: threadReferences,
         },
       )
+      console.log(`[Lightreach][tick] message ${msg.msgId} sent successfully, messageId=${outboundMessageId}`)
 
       await db
         .update(messages)
@@ -521,7 +536,7 @@ async function runTick(): Promise<void> {
       )
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
-      console.error(`[Lightreach] Failed to send message ${msg.msgId}:`, errMsg)
+      console.error(`[Lightreach][tick] Failed to send message ${msg.msgId}:`, errMsg)
 
       if (isHardBounce(err)) {
         await db
@@ -600,4 +615,6 @@ async function runTick(): Promise<void> {
         .where(and(eq(campaigns.id, campaignId), eq(campaigns.status, 'running')))
     }
   }
+
+  console.log(`[Lightreach][tick] tick finished. touchedCampaigns: ${touchedCampaignIds.size}, sentAnyThisTick: ${sentAnyThisTick}`)
 }
