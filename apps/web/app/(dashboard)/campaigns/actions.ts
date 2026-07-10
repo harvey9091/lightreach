@@ -92,12 +92,6 @@ export async function resumeCampaign(id: number) {
 
   if (!campaign) throw new Error('Campaign not found')
 
-  // While paused, queued messages keep their original scheduledAt. Any that came
-  // due during the pause are now past-due and would all fire in the next tick as
-  // a burst. Re-stagger just those from now using the campaign's jitter window,
-  // preserving their original order. Messages still scheduled in the future
-  // (e.g. later sequence steps with delayDays) are left untouched so we don't
-  // pull intentional delays earlier.
   const now = Date.now()
   const pastDue = await db
     .select({ id: messages.id })

@@ -130,11 +130,6 @@ async function runTick(): Promise<void> {
   const todayStart = new Date(now)
   todayStart.setHours(0, 0, 0, 0)
 
-  // Backfill step-1 messages for leads added to a running campaign's list after
-  // it was launched. Without this, leads imported/created mid-campaign would
-  // never be queued (step-1 rows are otherwise only created at launch) and would
-  // sit un-contacted forever. enqueueNewLeads is idempotent, so re-running it
-  // every tick only ever picks up leads that don't already have a step-1 row.
   const runningCampaigns = await db
     .select({
       id: campaigns.id,
@@ -145,6 +140,8 @@ async function runTick(): Promise<void> {
       sendWindowEnd: campaigns.sendWindowEnd,
       timezone: campaigns.timezone,
       daysOfWeek: campaigns.daysOfWeek,
+      dailyCap: campaigns.dailyCap,
+      sequenceId: campaigns.sequenceId,
     })
     .from(campaigns)
     .where(and(eq(campaigns.status, 'running'), isNotNull(campaigns.listId)))
@@ -165,8 +162,6 @@ async function runTick(): Promise<void> {
     }
   }
 
-  // Find due queued messages for running campaigns, oldest-due first so a
-  // backlog doesn't starve messages that have been waiting the longest.
   const due = await db
     .select({
       msgId: messages.id,
@@ -227,8 +222,11 @@ async function runTick(): Promise<void> {
     touchedCampaignIds.add(msg.campaignId)
     const iterNow = new Date()
 
-    // Skip if outside send window
+    // Manual launches bypass the send-window check for step 1 so the first
+    // batch begins immediately even if the campaign is activated outside
+    // configured hours. Follow-up steps still respect the send window.
     if (
+      msg.stepPosition > 1 &&
       !isWithinSendWindow(
         iterNow,
         msg.timezone,
@@ -442,6 +440,7 @@ async function runTick(): Promise<void> {
     // The send window may have closed while we were sleeping/waiting.
     const preSendNow = new Date()
     if (
+      msg.stepPosition > 1 &&
       !isWithinSendWindow(
         preSendNow,
         msg.timezone,

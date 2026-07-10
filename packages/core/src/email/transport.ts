@@ -196,7 +196,6 @@ export async function sendMail(
     const isHtmlActuallyText = isPlainText(payload.html)
     const finalHtml = isHtmlActuallyText ? textToHtml(payload.html) : payload.html
     const finalText = payload.text ?? htmlToText(finalHtml)
-    console.log(`[Lightreach][sendMail] msgId=${payload.messageId} to=${payload.to} isPlainTextfallback=${isHtmlActuallyText} finalHtml_len=${finalHtml.length} payload.html_len=${payload.html.length} payload.html=${JSON.stringify(payload.html.substring(0, 300))}`)
 
     const mailOptions: SendMailOptions = {
       from: `"${sanitizeHeaderValue(payload.fromName)}" <${payload.fromEmail}>`,
@@ -220,6 +219,9 @@ export async function sendMail(
       `"${sanitizeHeaderValue(payload.fromName)}" <${payload.fromEmail}>`,
     )
     return { messageId: info.messageId as string };
+  } catch (err) {
+    console.error(`[Lightreach][sendMail] Failed to send message ${payload.messageId}:`, err instanceof Error ? err.message : String(err))
+    throw err
   } finally {
     transport.close();
   }

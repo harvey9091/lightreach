@@ -1,6 +1,5 @@
 import { db, messages, leads } from '@workspace/db'
 import { eq, and } from 'drizzle-orm'
-import { nextSendWindowStart } from '@workspace/core/rotation'
 
 export type EnqueueCampaign = {
   id: number
@@ -13,14 +12,6 @@ export type EnqueueCampaign = {
   daysOfWeek: number[]
 }
 
-/**
- * Create step-1 `queued` messages for every lead in the campaign's list that
- * doesn't already have one. Idempotent: leads that were already enqueued (or
- * already sent step 1) are skipped, so this is safe to call repeatedly — at
- * launch and on every scheduler tick to pick up leads added mid-campaign.
- *
- * Returns the number of new messages created.
- */
 export async function enqueueNewLeads(campaign: EnqueueCampaign): Promise<number> {
   if (!campaign.listId) return 0
 
@@ -42,13 +33,7 @@ export async function enqueueNewLeads(campaign: EnqueueCampaign): Promise<number
   if (newLeads.length === 0) return 0
 
   const avgDelayMs = ((campaign.minDelaySeconds + campaign.maxDelaySeconds) / 2) * 1000
-  const base = nextSendWindowStart(
-    new Date(),
-    campaign.timezone,
-    campaign.sendWindowStart,
-    campaign.sendWindowEnd,
-    campaign.daysOfWeek,
-  ).getTime()
+  const base = Date.now()
 
   await db.insert(messages).values(
     newLeads.map((l, i) => ({
