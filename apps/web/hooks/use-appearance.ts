@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 const STORAGE_KEY = "lightreach-appearance"
 
@@ -28,6 +28,17 @@ const DEFAULTS: AppearanceSettings = {
   highDensity: false,
 }
 
+function loadSettings(): AppearanceSettings {
+  if (typeof window === "undefined") return DEFAULTS
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<AppearanceSettings>) }
+  } catch {
+    // ignore localStorage errors
+  }
+  return DEFAULTS
+}
+
 export const SNAP_SIDEBAR_WIDTHS = [220, 260, 300, 340] as const
 
 export const THEME_IDS = [
@@ -44,32 +55,17 @@ export const THEME_IDS = [
 ] as const
 
 export function useAppearance() {
-  const [settings, setSettings] = useState<AppearanceSettings>(() => {
-    if (typeof window === "undefined") return DEFAULTS
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<AppearanceSettings>) }
-    } catch {
-      // ignore localStorage errors
-    }
-    return DEFAULTS
-  })
+  const [settings, setSettings] = useState<AppearanceSettings>(loadSettings)
 
-  const [saved, setSaved] = useState<AppearanceSettings>(() => {
-    if (typeof window === "undefined") return DEFAULTS
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<AppearanceSettings>) }
-    } catch {
-      // ignore localStorage errors
-    }
-    return DEFAULTS
-  })
-
-  const dirty = useMemo(
-    () => JSON.stringify(settings) !== JSON.stringify(saved),
-    [settings, saved],
-  )
+  const dirty = settings.theme !== DEFAULTS.theme ||
+    settings.radius !== DEFAULTS.radius ||
+    settings.fontSize !== DEFAULTS.fontSize ||
+    settings.sidebarWidth !== DEFAULTS.sidebarWidth ||
+    settings.animationSpeed !== DEFAULTS.animationSpeed ||
+    settings.compactMode !== DEFAULTS.compactMode ||
+    settings.glassMode !== DEFAULTS.glassMode ||
+    settings.sidebarTransparency !== DEFAULTS.sidebarTransparency ||
+    settings.highDensity !== DEFAULTS.highDensity
 
   // Apply CSS variables to :root whenever settings change (always live-preview)
   useEffect(() => {
@@ -93,18 +89,20 @@ export function useAppearance() {
   const persist = useCallback((next: AppearanceSettings) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      setSaved(next)
     } catch {}
   }, [])
 
   const update = useCallback((partial: Partial<AppearanceSettings>) => {
-    setSettings((prev) => ({ ...prev, ...partial }))
-  }, [])
+    setSettings((prev) => {
+      const next = { ...prev, ...partial }
+      persist(next)
+      return next
+    })
+  }, [persist])
 
   const reset = useCallback(() => {
     setSettings(DEFAULTS)
-    persist(DEFAULTS)
-  }, [persist])
+  }, [])
 
   return { settings, update, persist, reset, dirty, SNAP_SIDEBAR_WIDTHS, THEME_IDS }
 }
