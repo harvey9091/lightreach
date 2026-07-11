@@ -25,12 +25,20 @@ import {
   SelectValue,
 } from '@workspace/ui/components/select'
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@workspace/ui/components/dialog'
+import {
   IconPlus,
   IconEye,
   IconPencil,
   IconArrowLeft,
   IconDeviceFloppy,
   IconTrash,
+  IconExternalLink,
 } from '@tabler/icons-react'
 import { expandSpintax } from '@workspace/core/spintax'
 import { renderVariables } from '@workspace/core/variables'
@@ -99,6 +107,9 @@ export function SequenceEditor({
   const [selectedLeadId, setSelectedLeadId] = useState<string>(
     leads.length > 0 ? String(leads[0]!.id) : 'demo'
   )
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkText, setLinkText] = useState('')
+  const [linkUrl, setLinkUrl] = useState('')
 
   const previewLead =
     selectedLeadId === 'demo'
@@ -156,6 +167,56 @@ export function SequenceEditor({
       toast.success('Sequence saved')
       router.push('/sequences')
     })
+  }
+
+  function previewHtml(body: string): string {
+    if (!body) return ''
+    const A_TAG_RE = /<a\b[^>]*>[\s\S]*?<\/a>/gi
+    const links: string[] = []
+    const preserved = body.replace(A_TAG_RE, (m) => {
+      links.push(m)
+      return `\x00${links.length - 1}\x00`
+    })
+    const escaped = preserved
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+    const withBreaks = escaped
+      .replace(/\r\n/g, '\n')
+      .replace(/\n{2,}/g, '</p><p>')
+      .replace(/\n/g, '<br>')
+    return `<p>${withBreaks}</p>`.replace(/\x00(\d+)\x00/g, (_, i) => links[Number(i)]!)
+  }
+
+  function openLinkDialog() {
+    setLinkText('')
+    setLinkUrl('')
+    setLinkOpen(true)
+  }
+
+  function handleInsertLink() {
+    const text = linkText.trim()
+    const url = linkUrl.trim()
+    if (!text || !url) return
+    const html = `<a href="${url}">${text}</a>`
+    const el = document.getElementById('body') as HTMLTextAreaElement | null
+    if (el) {
+      const start = el.selectionStart
+      const end = el.selectionEnd
+      const val = currentStep.body
+      const next = val.slice(0, start) + html + val.slice(end)
+      updateStep('body', next)
+      setTimeout(() => {
+        el.focus()
+        const newPos = start + html.length
+        el.setSelectionRange(newPos, newPos)
+      }, 0)
+    } else {
+      updateStep('body', currentStep.body + html)
+    }
+    setLinkOpen(false)
   }
 
   return (
@@ -351,12 +412,24 @@ export function SequenceEditor({
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label
-                  htmlFor="body"
-                  className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
-                >
-                  Email body
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="body"
+                    className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+                  >
+                    Email body
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={openLinkDialog}
+                    className="gap-1.5 h-7 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <IconExternalLink className="size-3.5" />
+                    Insert Link
+                  </Button>
+                </div>
                 <Textarea
                   id="body"
                   value={currentStep.body}
@@ -524,19 +597,68 @@ export function SequenceEditor({
                   Body
                 </p>
                 <div className="rounded-lg border border-white/5 bg-white/5 p-4">
-                  <pre className="font-sans text-sm leading-relaxed whitespace-pre-wrap">
-                    {renderedBody || (
-                      <span className="text-muted-foreground italic">
-                        No body yet
-                      </span>
-                    )}
-                  </pre>
+                  {renderedBody ? (
+                    <div
+                      className="font-sans text-sm leading-relaxed whitespace-pre-wrap"
+                      dangerouslySetInnerHTML={{ __html: previewHtml(renderedBody) }}
+                    />
+                  ) : (
+                    <span className="text-muted-foreground italic">No body yet</span>
+                  )}
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {linkOpen && (
+        <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+          <DialogContent showCloseButton={false} className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Insert Link</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="link-text" className="text-xs font-medium">
+                  Display text
+                </Label>
+                <Input
+                  id="link-text"
+                  value={linkText}
+                  onChange={(e) => setLinkText(e.target.value)}
+                  placeholder="View our portfolio"
+                  className="bg-white/5 border-white/10 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="link-url" className="text-xs font-medium">
+                  URL
+                </Label>
+                <Input
+                  id="link-url"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="https://jasperfilmz.online"
+                  className="bg-white/5 border-white/10 text-sm"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" size="sm" onClick={() => setLinkOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleInsertLink}
+                disabled={!linkText.trim() || !linkUrl.trim()}
+              >
+                Insert
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

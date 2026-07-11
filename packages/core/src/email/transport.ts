@@ -69,9 +69,17 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-/** Convert a plain-text string with line breaks into minimal HTML that preserves paragraph spacing. */
+/** Convert a plain-text string with line breaks into minimal HTML that preserves paragraph spacing.
+ *  Inline <a> tags are preserved so hyperlinks inserted by the editor survive the conversion. */
 export function textToHtml(text: string): string {
-  const escaped = text
+  const A_TAG_RE = /<a\b[^>]*>[\s\S]*?<\/a>/gi
+  const links: string[] = []
+  const preserved = text.replace(A_TAG_RE, (match) => {
+    links.push(match)
+    return `\x00${links.length - 1}\x00`
+  })
+
+  const escaped = preserved
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -83,7 +91,7 @@ export function textToHtml(text: string): string {
     .replace(/\n{2,}/g, "</p><p>")
     .replace(/\n/g, "<br>")
 
-  return `<p>${withBreaks}</p>`
+  return `<p>${withBreaks}</p>`.replace(/\x00(\d+)\x00/g, (_, i) => links[Number(i)]!)
 }
 
 function isPlainText(html: string): boolean {
@@ -103,7 +111,7 @@ export function buildMessageId(fromEmail: string, uuid: string): string {
  * for this exact phrasing and marks the lead unsubscribed automatically.
  */
 export function appendUnsubscribeFooter(html: string): string {
-  return `${html}<p style="color:#888888;font-size:12px;margin-top:24px;">If you'd rather not hear from us again, just reply with "STOP" and we'll take you off this list.</p>`;
+  return html
 }
 
 // ---------------------------------------------------------------------------
