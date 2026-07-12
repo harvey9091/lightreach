@@ -6,12 +6,14 @@ import {
   connections,
   leads,
   sequenceSteps,
+  appSettings,
 } from '@workspace/db/schema'
 import { decrypt } from '@workspace/core/crypto'
 import { sendMail, buildMessageId, appendUnsubscribeFooter, textToHtml } from '@workspace/core/email/transport'
 import { pickNext, isWithinSendWindow, randomDelayMs, startOfDayInTimezone } from '@workspace/core/rotation'
 import { expandSpintax } from '@workspace/core/spintax'
 import { renderVariables } from '@workspace/core/variables'
+import { buildTrackingHtml } from '@workspace/core/email/tracking'
 import { eq, and, lt, lte, gte, isNotNull, asc, desc, sql } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { enqueueNewLeads } from '@/lib/enqueue-leads'
@@ -23,6 +25,38 @@ const MAX_ATTEMPTS = 3
 /** A mailbox is only auto-disabled after this many consecutive (non-bounce) failures. */
 const CONNECTION_ERROR_THRESHOLD = 3
 const RETRY_BACKOFF_BASE_MS = 5 * 60_000
+
+async function loadTrackingSettings(): Promise<{ openTracking: boolean; linkTracking: boolean }> {
+  try {
+    const rows = await db
+      .select()
+      .from(appSettings)
+      .where(
+        sql`${appSettings.key} IN ('enable_open_tracking', 'enable_link_tracking')`,
+      )
+    const map = new Map(rows.map((r) => [r.key, r.value === "true"]))
+    return {
+      openTracking: map.get("enable_open_tracking") ?? true,
+      linkTracking: map.get("enable_link_tracking") ?? true,
+    }
+  } catch {
+    return { openTracking: true, linkTracking: true }
+  }
+}
+
+let trackingSettingsCache: { openTracking: boolean; linkTracking: boolean } | null = null
+let trackingSettingsLoadedAt = 0
+const TRACKING_SETTINGS_TTL_MS = 30_000
+
+async function getTrackingSettings(): Promise<{ openTracking: boolean; linkTracking: boolean }> {
+  const now = Date.now()
+  if (trackingSettingsCache && now - trackingSettingsLoadedAt < TRACKING_SETTINGS_TTL_MS) {
+    return trackingSettingsCache
+  }
+  trackingSettingsCache = await loadTrackingSettings()
+  trackingSettingsLoadedAt = now
+  return trackingSettingsCache
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -456,9 +490,23 @@ async function runTick(): Promise<void> {
       continue
     }
 
-    // Message-ID rooted at the sender's own domain — a non-routable placeholder
-    // domain is a well-known spam signal.
-    const outboundMessageId = buildMessageId(chosenConn.fromEmail, randomUUID())
+    // Build the outbound message-id and tracking anchor BEFORE send
+    const outboundTrackingId = randomUUID()
+    const outboundMessageId = buildMessageId(chosenConn.fromEmail, outboundTrackingId)
+
+    // Load tracking settings (cached per tick) -- injects pixel + rewrites links
+    const { openTracking, linkTracking } = await getTrackingSettings()
+
+    const trackingHtml = buildTrackingHtml({
+      html: renderedBody,
+      trackingId: outboundTrackingId,
+      messageId: outboundMessageId,
+      campaignId: msg.campaignId ?? 0,
+      leadId: msg.leadId,
+      enableOpenTracking: openTracking,
+      enableLinkTracking: linkTracking,
+      domain: chosenConn.fromEmail.split("@")[1] ?? undefined,
+    })
 
     // Send email
     try {
@@ -476,7 +524,7 @@ async function runTick(): Promise<void> {
           fromEmail: chosenConn.fromEmail,
           to: lead.email,
           subject: renderedSubject,
-          html: renderedBody,
+          html: trackingHtml,
           messageId: outboundMessageId,
           inReplyTo: threadInReplyTo,
           references: threadReferences,
@@ -491,7 +539,7 @@ async function runTick(): Promise<void> {
           sentAt: new Date(),
           connectionId: pickResult.connectionId,
           renderedSubject,
-          renderedBody,
+          renderedBody: trackingHtml,
           messageId: normalizeMessageId(outboundMessageId),
         })
         .where(eq(messages.id, msg.msgId))

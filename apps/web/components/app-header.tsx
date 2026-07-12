@@ -16,6 +16,7 @@ const routeLabels: Record<string, string> = {
   "/campaigns": "Campaigns",
   "/emails": "Emails",
   "/inbox": "Inbox",
+  "/analytics": "Analytics",
   "/mcp": "MCP",
   "/settings": "Settings",
 }

@@ -8,6 +8,49 @@ import {
 } from "drizzle-orm/sqlite-core";
 
 // ---------------------------------------------------------------------------
+// analytics — tracking tables
+// ---------------------------------------------------------------------------
+
+export const emailOpens = sqliteTable(
+  "email_opens",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    trackingId: text("tracking_id").notNull(),
+    messageId: text("message_id").notNull(),
+    campaignId: integer("campaign_id").references(() => campaigns.id, { onDelete: "cascade" }),
+    leadId: integer("lead_id").references(() => leads.id, { onDelete: "cascade" }),
+    openedAt: integer("opened_at", { mode: "timestamp" }).notNull(),
+    userAgent: text("user_agent"),
+    ipAddress: text("ip_address"),
+  },
+  (table) => [
+    uniqueIndex("email_opens_tracking_day_idx").on(table.trackingId, sql`cast(opened_at / 86400 as integer)`),
+    index("email_opens_campaign_idx").on(table.campaignId),
+    index("email_opens_message_idx").on(table.messageId),
+  ],
+);
+
+export const linkClicks = sqliteTable(
+  "link_clicks",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    trackingId: text("tracking_id").notNull(),
+    messageId: text("message_id").notNull(),
+    campaignId: integer("campaign_id").references(() => campaigns.id, { onDelete: "cascade" }),
+    leadId: integer("lead_id").references(() => leads.id, { onDelete: "cascade" }),
+    originalUrl: text("original_url").notNull(),
+    clickedAt: integer("clicked_at").notNull(),
+    userAgent: text("user_agent"),
+    ipAddress: text("ip_address"),
+  },
+  (table) => [
+    uniqueIndex("link_clicks_message_url_idx").on(table.messageId, table.originalUrl),
+    index("link_clicks_campaign_idx").on(table.campaignId),
+    index("link_clicks_tracking_idx").on(table.trackingId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // connections — SMTP mailboxes
 // ---------------------------------------------------------------------------
 export const connections = sqliteTable("connections", {
@@ -316,3 +359,9 @@ export type InboundEmail = typeof inboundEmails.$inferSelect;
 export type NewInboundEmail = typeof inboundEmails.$inferInsert;
 
 export type AppSetting = typeof appSettings.$inferSelect;
+
+export type EmailOpen = typeof emailOpens.$inferSelect;
+export type NewEmailOpen = typeof emailOpens.$inferInsert;
+
+export type LinkClick = typeof linkClicks.$inferSelect;
+export type NewLinkClick = typeof linkClicks.$inferInsert;

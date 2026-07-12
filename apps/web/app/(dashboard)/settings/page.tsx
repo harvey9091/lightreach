@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Card,
   CardContent,
@@ -28,6 +28,9 @@ import {
   IconGitBranch,
   IconLoader,
   IconDeviceFloppy,
+  IconChartArea,
+  IconLink,
+  IconEye,
 } from "@tabler/icons-react"
 import { useAppearance, type AppearanceSettings } from "@/hooks/use-appearance"
 import { toast } from "sonner"
@@ -259,6 +262,107 @@ function AppearanceControls() {
   )
 }
 
+function TrackingControls() {
+  const [openTracking, setOpenTracking] = useState(true)
+  const [linkTracking, setLinkTracking] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    fetch("/api/settings/tracking")
+      .then((r) => r.json())
+      .then((data) => {
+        if (typeof data.enable_open_tracking === "boolean") setOpenTracking(data.enable_open_tracking)
+        if (typeof data.enable_link_tracking === "boolean") setLinkTracking(data.enable_link_tracking)
+        setLoaded(true)
+      })
+      .catch(() => setLoaded(true))
+  }, [])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await fetch("/api/settings/tracking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enable_open_tracking: openTracking, enable_link_tracking: linkTracking }),
+      })
+      toast.success("Tracking preferences saved")
+    } catch {
+      toast.error("Failed to save")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!loaded) return null
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2.5">
+          <div className="bg-primary/10 flex size-8 shrink-0 items-center justify-center rounded-xl">
+            <IconChartArea className="text-primary size-4" />
+          </div>
+          <div>
+            <CardTitle className="text-heading">Tracking</CardTitle>
+            <CardDescription className="mt-0.5">
+              Control email open and link click tracking for sent campaigns.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <IconEye className="text-muted-foreground size-4" />
+            <div>
+              <Label htmlFor="open-tracking" className="text-sm font-medium">
+                Enable open tracking
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                Appends a 1×1 pixel to HTML emails to detect opens. Note: some
+                privacy tools (Apple MPP, corporate scanners) may inflate counts.
+              </p>
+            </div>
+          </div>
+          <Switch id="open-tracking" checked={openTracking} onCheckedChange={setOpenTracking} />
+        </div>
+
+        <Separator className="bg-border" />
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <IconLink className="text-muted-foreground size-4" />
+            <div>
+              <Label htmlFor="link-tracking" className="text-sm font-medium">
+                Enable link tracking
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                Rewrites every HTTP/HTTPS link in the email body to route clicks
+                through Lightreach. Disable if your domains are listed in the
+                tracking blacklist.
+              </p>
+            </div>
+          </div>
+          <Switch id="link-tracking" checked={linkTracking} onCheckedChange={setLinkTracking} />
+        </div>
+
+        <div className="flex items-center justify-end pt-2">
+          <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
+            {saving ? (
+              <IconLoader className="size-3.5 animate-spin" />
+            ) : (
+              <IconDeviceFloppy className="size-3.5" />
+            )}
+            {saving ? "Saving..." : "Save tracking preferences"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function SettingsPage() {
   const { settings, update } = useAppearance()
 
@@ -424,6 +528,8 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+
+          <TrackingControls />
         </TabsContent>
 
         {/* ── Appearance ──────────────────────────────────────────── */}

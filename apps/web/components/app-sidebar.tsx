@@ -26,6 +26,7 @@ import {
   IconLayoutDashboard,
   IconTemplate,
   IconPlug,
+  IconChartArea,
 } from "@tabler/icons-react"
 
 const overviewItems = [
@@ -42,6 +43,7 @@ const outreachItems = [
   { label: "Campaigns", href: "/campaigns", icon: IconSend },
   { label: "Emails", href: "/emails", icon: IconInbox },
   { label: "Inbox", href: "/inbox", icon: IconMailbox },
+  { label: "Analytics", href: "/analytics", icon: IconChartArea },
 ]
 
 const integrationsItems = [
