@@ -10,5 +10,5 @@ export default async function McpPage() {
 
   const hasToken = Boolean(row?.value)
 
-  return <McpView hasToken={hasToken} />
+  return <McpView hasToken={hasToken} appUrl={process.env.APP_URL || ''} />
 }

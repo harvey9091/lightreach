@@ -41,7 +41,7 @@ pnpm db:migrate
 
 # 4. Start the app
 pnpm dev
-# → http://localhost:3000
+# → https://lightreach.jasperfilmz.online (or set APP_URL)
 ```
 
 > **Production note:** the background scheduler and inbox poller run inside the Node.js

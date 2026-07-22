@@ -1,7 +1,7 @@
 import { db } from "@workspace/db"
 import { appSettings } from "@workspace/db/schema"
 import { NextRequest, NextResponse } from "next/server"
-import { eq } from "drizzle-orm"
+import { inArray } from "drizzle-orm"
 
 const TRACKING_KEYS = ["enable_open_tracking", "enable_link_tracking"]
 
@@ -34,5 +34,3 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true })
 }
-
-import { inArray } from "drizzle-orm"

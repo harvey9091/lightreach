@@ -1,7 +1,8 @@
 import { db } from "@workspace/db"
-import { appSettings, emailOpens, messages, linkClicks } from "@workspace/db/schema"
+import { appSettings, emailOpens, messages } from "@workspace/db/schema"
 import { NextRequest, NextResponse } from "next/server"
 import { sql, eq } from "drizzle-orm"
+import { recordClick } from "@/lib/analytics"
 
 const CLICK_TRACKING_SETTING = "enable_link_tracking"
 
@@ -9,7 +10,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ trackingId: string }> },
 ) {
-  const { trackingId } = await params
+  const trackingId = (await params).trackingId
 
   let trackingEnabled = true
   try {
@@ -33,12 +34,13 @@ export async function GET(
         .limit(1)
 
       let messageId = openRow?.messageId
-      let campaignId: number | undefined = openRow?.campaignId ?? undefined
-      let leadId: number | undefined = openRow?.leadId ?? undefined
+      let campaignId: number | null = openRow?.campaignId ?? null
+      let leadId: number | null = openRow?.leadId ?? null
+      let sequenceId: number | null = null
 
       if (!messageId) {
         const msgRow = await db
-          .select({ id: messages.id, campaignId: messages.campaignId, leadId: messages.leadId })
+          .select({ id: messages.id, campaignId: messages.campaignId, leadId: messages.leadId, sequenceId: messages.sequenceId })
           .from(messages)
           .where(
             sql`${messages.renderedBody} LIKE ${`%/api/tracking/click/${trackingId}%`}`,
@@ -47,9 +49,17 @@ export async function GET(
 
         if (msgRow.length > 0) {
           messageId = String(msgRow[0]!.id)
-          campaignId = msgRow[0]!.campaignId ?? undefined
-          leadId = msgRow[0]!.leadId
+          campaignId = msgRow[0]!.campaignId ?? null
+          leadId = msgRow[0]!.leadId ?? null
+          sequenceId = msgRow[0]!.sequenceId ?? null
         }
+      } else {
+        const seqRow = await db
+          .select({ sequenceId: messages.sequenceId })
+          .from(messages)
+          .where(eq(messages.id, Number(messageId)))
+          .limit(1)
+        sequenceId = seqRow[0]?.sequenceId ?? null
       }
 
       const ua = _req.headers.get("user-agent") ?? undefined
@@ -59,23 +69,19 @@ export async function GET(
         undefined
 
       if (messageId) {
-        try {
-          await db.insert(linkClicks).values({
-            trackingId,
-            messageId,
-            campaignId,
-            leadId,
-            originalUrl: targetUrl,
-            clickedAt: Math.floor(Date.now() / 1000),
-            userAgent: ua,
-            ipAddress: ip,
-          })
-        } catch {
-          // unique_violation — silently swallow
-        }
+        await recordClick({
+          trackingId,
+          messageId,
+          campaignId,
+          leadId,
+          sequenceId,
+          originalUrl: targetUrl,
+          userAgent: ua,
+          ipAddress: ip,
+        })
       }
     } catch {
-      // Silently ignore tracking errors
+      // Analytics failures must not block the redirect.
     }
   }
 

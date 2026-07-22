@@ -497,6 +497,7 @@ async function runTick(): Promise<void> {
     // Load tracking settings (cached per tick) -- injects pixel + rewrites links
     const { openTracking, linkTracking } = await getTrackingSettings()
 
+    const appUrl = process.env.APP_URL || ''
     const trackingHtml = buildTrackingHtml({
       html: renderedBody,
       trackingId: outboundTrackingId,
@@ -505,7 +506,7 @@ async function runTick(): Promise<void> {
       leadId: msg.leadId,
       enableOpenTracking: openTracking,
       enableLinkTracking: linkTracking,
-      domain: chosenConn.fromEmail.split("@")[1] ?? undefined,
+      baseUrl: appUrl,
     })
 
     // Send email
@@ -572,6 +573,7 @@ async function runTick(): Promise<void> {
         await db.insert(messages).values({
           campaignId: msg.campaignId,
           leadId: msg.leadId,
+          sequenceId: msg.sequenceId,
           stepPosition: nextStep.position,
           status: 'queued',
           scheduledAt: new Date(Date.now() + nextStep.delayDays * 86_400_000 + jitterMs),

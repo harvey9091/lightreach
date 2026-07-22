@@ -2,6 +2,7 @@ import { db } from "@workspace/db"
 import { appSettings, emailOpens, messages } from "@workspace/db/schema"
 import { NextRequest, NextResponse } from "next/server"
 import { eq, and, gte, lt, sql } from "drizzle-orm"
+import { recordOpen } from "@/lib/analytics"
 
 const OPEN_TRACKING_SETTING = "enable_open_tracking"
 const PIXEL_GIF_BYTES = Buffer.from(
@@ -21,7 +22,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ trackingId: string }> },
 ) {
-  const { trackingId } = await params
+  const trackingId = (await params).trackingId
 
   let trackingEnabled = true
   try {
@@ -49,39 +50,40 @@ export async function GET(
         )
         .limit(1)
 
-      if (existingRows.length === 0) {
-        let messageId = existingRows[0]?.messageId ?? ""
-        let campaignId = existingRows[0]?.campaignId ?? null
-        let leadId = existingRows[0]?.leadId ?? null
+      let messageId = ""
+      let campaignId: number | null = null
+      let leadId: number | null = null
 
-        if (!messageId) {
-          const msgRow = await db
-            .select({ id: messages.id, campaignId: messages.campaignId, leadId: messages.leadId })
-            .from(messages)
-            .where(sql`${messages.renderedBody} LIKE ${`%/api/tracking/open/${trackingId}%`}`)
-            .limit(1)
+      if (existingRows.length > 0) {
+        messageId = existingRows[0]!.messageId
+        campaignId = existingRows[0]!.campaignId ?? null
+        leadId = existingRows[0]!.leadId ?? null
+      } else {
+        const msgRow = await db
+          .select({ id: messages.id, campaignId: messages.campaignId, leadId: messages.leadId })
+          .from(messages)
+          .where(sql`${messages.renderedBody} LIKE ${`%/api/tracking/open/${trackingId}%`}`)
+          .limit(1)
 
-          if (msgRow.length > 0) {
-            messageId = String(msgRow[0]!.id)
-            campaignId = msgRow[0]!.campaignId ?? null
-            leadId = msgRow[0]!.leadId
-          }
-        }
-
-        if (messageId) {
-          await db.insert(emailOpens).values({
-            trackingId,
-            messageId,
-            campaignId: campaignId as number | null,
-            leadId: leadId as number | null,
-            openedAt: new Date(nowSec * 1000),
-            userAgent: req.headers.get("user-agent") ?? undefined,
-            ipAddress: ipFromRequest(req) ?? undefined,
-          })
+        if (msgRow.length > 0) {
+          messageId = String(msgRow[0]!.id)
+          campaignId = msgRow[0]!.campaignId ?? null
+          leadId = msgRow[0]!.leadId ?? null
         }
       }
+
+      if (messageId) {
+        await recordOpen({
+          trackingId,
+          messageId,
+          campaignId: campaignId ?? null,
+          leadId: leadId ?? null,
+          userAgent: req.headers.get("user-agent") ?? undefined,
+          ipAddress: ipFromRequest(req) ?? undefined,
+        })
+      }
     } catch {
-      // Silently ignore any tracking errors
+      // Pixel delivery must not fail because analytics failed.
     }
   }
 

@@ -224,7 +224,7 @@ const TOOL_GROUPS: { group: string; tools: ToolEntry[] }[] = [
 
 const TOTAL_TOOLS = TOOL_GROUPS.reduce((a, g) => a + g.tools.length, 0)
 
-export function McpView({ hasToken }: { hasToken: boolean }) {
+export function McpView({ hasToken, appUrl }: { hasToken: boolean; appUrl: string }) {
   const [token, setToken] = useState<string | null>(null)
   const [tokenExists, setTokenExists] = useState(hasToken)
   const [showing, setShowing] = useState(false)
@@ -234,7 +234,7 @@ export function McpView({ hasToken }: { hasToken: boolean }) {
   const endpoint =
     typeof window !== 'undefined'
       ? `${window.location.protocol}//${window.location.host}/api/mcp`
-      : 'http://localhost:3000/api/mcp'
+      : `${appUrl}/api/mcp`
 
   const mcpJson = JSON.stringify(
     {

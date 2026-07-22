@@ -126,6 +126,8 @@ export const leads = sqliteTable("leads", {
     .default({}),
   /** 'new' | 'contacted' | 'replied' | 'bounced' | 'unsubscribed' */
   status: text("status").notNull().default("new"),
+  openedAt: integer("opened_at", { mode: "timestamp" }),
+  clickedAt: integer("clicked_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -143,6 +145,10 @@ export const sequences = sqliteTable("sequences", {
   updatedAt: integer("updated_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
+  opens: integer("opens").notNull().default(0),
+  clicks: integer("clicks").notNull().default(0),
+  lastOpenAt: integer("last_open_at", { mode: "timestamp" }),
+  lastClickAt: integer("last_click_at", { mode: "timestamp" }),
 });
 
 // ---------------------------------------------------------------------------
@@ -210,6 +216,10 @@ export const campaigns = sqliteTable("campaigns", {
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
+  opens: integer("opens").notNull().default(0),
+  clicks: integer("clicks").notNull().default(0),
+  lastOpenAt: integer("last_open_at", { mode: "timestamp" }),
+  lastClickAt: integer("last_click_at", { mode: "timestamp" }),
 });
 
 // ---------------------------------------------------------------------------
@@ -246,6 +256,9 @@ export const messages = sqliteTable(
     leadId: integer("lead_id")
       .notNull()
       .references(() => leads.id, { onDelete: "cascade" }),
+    sequenceId: integer("sequence_id").references(() => sequences.id, {
+      onDelete: "set null",
+    }),
     connectionId: integer("connection_id").references(() => connections.id, {
       onDelete: "set null",
     }),
@@ -331,6 +344,35 @@ export const appSettings = sqliteTable("app_settings", {
 });
 
 // ---------------------------------------------------------------------------
+// links — per-link click tracking aggregated per message
+// ---------------------------------------------------------------------------
+
+export const links = sqliteTable("links", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  messageId: text("message_id").notNull(),
+  url: text("url").notNull(),
+  clicks: integer("clicks").notNull().default(0),
+});
+
+// ---------------------------------------------------------------------------
+// daily_analytics — per-day global statistics for fast dashboard queries
+// ---------------------------------------------------------------------------
+
+export const dailyAnalytics = sqliteTable(
+  "daily_analytics",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    date: integer("date", { mode: "timestamp" }).notNull(),
+    opens: integer("opens").notNull().default(0),
+    clicks: integer("clicks").notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex("daily_analytics_date_unique").on(table.date),
+    index("daily_analytics_date_idx").on(table.date),
+  ]
+);
+
+// ---------------------------------------------------------------------------
 // Inferred types — convenient for use across the app
 // ---------------------------------------------------------------------------
 export type Connection = typeof connections.$inferSelect;
@@ -365,3 +407,9 @@ export type NewEmailOpen = typeof emailOpens.$inferInsert;
 
 export type LinkClick = typeof linkClicks.$inferSelect;
 export type NewLinkClick = typeof linkClicks.$inferInsert;
+
+export type Link = typeof links.$inferSelect;
+export type NewLink = typeof links.$inferInsert;
+
+export type DailyAnalytic = typeof dailyAnalytics.$inferSelect;
+export type NewDailyAnalytic = typeof dailyAnalytics.$inferInsert;

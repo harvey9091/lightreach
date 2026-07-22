@@ -21,6 +21,7 @@ export function buildTrackingHtml({
   enableOpenTracking,
   enableLinkTracking,
   domain,
+  baseUrl,
 }: {
   html: string
   trackingId: string
@@ -30,13 +31,14 @@ export function buildTrackingHtml({
   enableOpenTracking: boolean
   enableLinkTracking: boolean
   domain?: string
+  baseUrl: string
 }): string {
   let result = html
   if (enableLinkTracking) {
-    result = rewriteLinks(result, trackingId)
+    result = rewriteLinks(result, trackingId, baseUrl)
   }
   if (enableOpenTracking) {
-    result = injectPixel(result, trackingId, domain)
+    result = injectPixel(result, trackingId, baseUrl)
   }
   return result
 }
@@ -52,43 +54,37 @@ export function buildTrackingHtml({
  * Handles both bare URLs (left as text by textToHtml) and existing
  * <a href="..."> tags. Already-tracked links (with x-tracking-href) are left alone.
  */
-function rewriteLinks(html: string, trackingId: string): string {
-  // Process anchor tags first — mark them so we don't double-rewrite
+function rewriteLinks(html: string, trackingId: string, baseUrl: string): string {
   const trackedAnchorRe = /x-tracking-href="[^"]*"/
   const result = html.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, (match) => {
     if (trackedAnchorRe.test(match)) return match
-    return rewriteHrefInAnchor(match, trackingId)
+    return rewriteHrefInAnchor(match, trackingId, baseUrl)
   })
-
-  // Rewrite bare URLs that were NOT wrapped in <a> (textToHtml may wrap them
-  // differently, but plain text URLs remain plain text).
-  return result.replace(/(https?:\/\/[^\s"'<>]+)/gi, (url, offset) => {
-    // Skip URLs that are already part of our tracking endpoints
+  return result.replace(/(https?:\/\/[^\s"'<>]+)/gi, (url) => {
     if (url.includes("/api/tracking/")) return url
-    return makeTrackingUrl(url, trackingId)
+    return makeTrackingUrl(url, trackingId, baseUrl)
   })
 }
 
-function rewriteHrefInAnchor(anchor: string, trackingId: string): string {
+function rewriteHrefInAnchor(anchor: string, trackingId: string, baseUrl: string): string {
   return anchor.replace(
     /href\s*=\s*"([^"]+)"/i,
     (match, url) =>
-      `href="${makeTrackingUrl(url, trackingId)}" x-tracking-href="${url}"`,
+      `href="${makeTrackingUrl(url, trackingId, baseUrl)}" x-tracking-href="${url}"`,
   )
 }
 
-function makeTrackingUrl(originalUrl: string, trackingId: string): string {
+export function makeTrackingUrl(originalUrl: string, trackingId: string, baseUrl: string): string {
   const encoded = encodeURIComponent(originalUrl)
-  return `/api/tracking/click/${trackingId}?url=${encoded}`
+  return `${baseUrl}/api/tracking/click/${trackingId}?url=${encoded}`
 }
 
 // ---------------------------------------------------------------------------
 // Open-tracking pixel
 // ---------------------------------------------------------------------------
 
-function injectPixel(html: string, trackingId: string, domain?: string): string {
-  const base = domain ? `https://${domain}` : ""
-  const pixelSrc = `${base}/api/tracking/open/${trackingId}`
+function injectPixel(html: string, trackingId: string, baseUrl: string): string {
+  const pixelSrc = `${baseUrl}/api/tracking/open/${trackingId}`
   const pixel = `<img src="${pixelSrc}" width="1" height="1" style="display:none" alt="" />`
   if (/<\/body\s*>/i.test(html)) {
     return html.replace(/<\/body\s*>/i, `${pixel}</body>`)

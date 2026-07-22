@@ -42,6 +42,7 @@ import {
 } from '@tabler/icons-react'
 import { expandSpintax } from '@workspace/core/spintax'
 import { renderVariables } from '@workspace/core/variables'
+import { buildTrackingHtml } from '@workspace/core/email/tracking'
 import { createSequence, updateSequence } from '../actions'
 
 type LeadPreview = {
@@ -122,6 +123,17 @@ export function SequenceEditor({
   const threadedSubject = isFollowUp && currentStep.sameThread
   const vars = makeVars(previewLead)
   const renderedBody = renderVariables(expandSpintax(currentStep.body), vars)
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const trackedPreviewHtml = buildTrackingHtml({
+    html: previewHtml(renderedBody),
+    trackingId: 'preview',
+    messageId: 'preview',
+    campaignId: 0,
+    leadId: 0,
+    enableOpenTracking: false,
+    enableLinkTracking: true,
+    baseUrl,
+  })
 
   let rootIndex = activeStep
   while (rootIndex > 0 && steps[rootIndex]?.sameThread) rootIndex--
@@ -600,7 +612,7 @@ export function SequenceEditor({
                   {renderedBody ? (
                     <div
                       className="font-sans text-sm leading-relaxed whitespace-pre-wrap"
-                      dangerouslySetInnerHTML={{ __html: previewHtml(renderedBody) }}
+                      dangerouslySetInnerHTML={{ __html: trackedPreviewHtml }}
                     />
                   ) : (
                     <span className="text-muted-foreground italic">No body yet</span>
