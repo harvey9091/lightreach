@@ -61,6 +61,18 @@ COPY --from=build --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
-USER nextjs
-EXPOSE 3000
-CMD ["node", "apps/web/server.js"]
+# Drizzle SQL migrations — needed so the app can self-initialize an empty
+# database on first startup (no separate migrate service required).
+COPY --from=build --chown=nextjs:nodejs /app/packages/db/drizzle ./drizzle
+ENV DRIZZLE_DIR=/app/drizzle
+
+# Ensure the working directory is writable by the nextjs user.
+RUN chown -R nextjs:nodejs /app
+
+# Entrypoint: fix volume permissions (data dir may be root-owned when mounted
+# as a Docker volume), then drop privileges to nextjs before starting the server.
+COPY --from=build --chown=root:root /app/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+USER root
+ENTRYPOINT ["/app/entrypoint.sh"]

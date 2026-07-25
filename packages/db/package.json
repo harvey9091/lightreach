@@ -12,7 +12,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./migrate": "./src/migrate.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",

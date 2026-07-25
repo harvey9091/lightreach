@@ -12,10 +12,11 @@
  */
 
 export async function register() {
-  // Only run on the Node.js runtime, never on Edge
   if (process.env.NEXT_RUNTIME !== "nodejs") return
 
-  // Lazy-import to keep the Edge bundle clean
+  const { migrate } = await import("@workspace/db/migrate")
+  await migrate()
+
   const { startScheduler } = await import("./lib/scheduler")
   startScheduler()
 
