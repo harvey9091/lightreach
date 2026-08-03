@@ -2,44 +2,48 @@ import { sql } from "drizzle-orm";
 import {
   index,
   integer,
-  sqliteTable,
+  pgTable,
+  serial,
   text,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+  boolean,
+  timestamp,
+  jsonb,
+} from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
 // analytics — tracking tables
 // ---------------------------------------------------------------------------
 
-export const emailOpens = sqliteTable(
+export const emailOpens = pgTable(
   "email_opens",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     trackingId: text("tracking_id").notNull(),
     messageId: text("message_id").notNull(),
     campaignId: integer("campaign_id").references(() => campaigns.id, { onDelete: "cascade" }),
     leadId: integer("lead_id").references(() => leads.id, { onDelete: "cascade" }),
-    openedAt: integer("opened_at", { mode: "timestamp" }).notNull(),
+    openedAt: timestamp("opened_at").notNull(),
     userAgent: text("user_agent"),
     ipAddress: text("ip_address"),
   },
   (table) => [
-    uniqueIndex("email_opens_tracking_day_idx").on(table.trackingId, sql`cast(opened_at / 86400 as integer)`),
     index("email_opens_campaign_idx").on(table.campaignId),
     index("email_opens_message_idx").on(table.messageId),
+    uniqueIndex("email_opens_tracking_day_idx").on(table.trackingId, sql`date_trunc('day', ${table.openedAt})`),
   ],
 );
 
-export const linkClicks = sqliteTable(
+export const linkClicks = pgTable(
   "link_clicks",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     trackingId: text("tracking_id").notNull(),
     messageId: text("message_id").notNull(),
     campaignId: integer("campaign_id").references(() => campaigns.id, { onDelete: "cascade" }),
     leadId: integer("lead_id").references(() => leads.id, { onDelete: "cascade" }),
     originalUrl: text("original_url").notNull(),
-    clickedAt: integer("clicked_at").notNull(),
+    clickedAt: timestamp("clicked_at").notNull(),
     userAgent: text("user_agent"),
     ipAddress: text("ip_address"),
   },
@@ -53,65 +57,53 @@ export const linkClicks = sqliteTable(
 // ---------------------------------------------------------------------------
 // connections — SMTP mailboxes
 // ---------------------------------------------------------------------------
-export const connections = sqliteTable("connections", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const connections = pgTable("connections", {
+  id: serial("id").primaryKey(),
   label: text("label").notNull(),
   fromName: text("from_name").notNull(),
   fromEmail: text("from_email").notNull(),
   smtpHost: text("smtp_host").notNull(),
   smtpPort: integer("smtp_port").notNull().default(587),
-  smtpSecure: integer("smtp_secure", { mode: "boolean" }).notNull().default(false),
+  smtpSecure: boolean("smtp_secure").notNull().default(false),
   smtpUser: text("smtp_user").notNull(),
-  /** AES-256-GCM encrypted — never return raw to the client */
   smtpPassEncrypted: text("smtp_pass_encrypted").notNull(),
   dailyLimit: integer("daily_limit").notNull().default(50),
-  /** 'active' | 'paused' | 'error' */
   status: text("status").notNull().default("active"),
-  /** Consecutive send failures since the last success. Reset to 0 on success;
-   *  the connection is auto-flipped to 'error' once this crosses a threshold
-   *  so a single transient error doesn't disable the mailbox. */
   consecutiveFailures: integer("consecutive_failures").notNull().default(0),
-  /** IMAP UIDVALIDITY of the last successful poll — if this changes, all UIDs
-   *  for this mailbox must be treated as renumbered. */
   imapUidValidity: integer("imap_uid_validity"),
-  lastTestedAt: integer("last_tested_at", { mode: "timestamp" }),
+  lastTestedAt: timestamp("last_tested_at"),
   lastError: text("last_error"),
-  /** SPF/DKIM/DMARC DNS check results for the fromEmail domain. Null = not checked yet. */
-  dnsRecords: text("dns_records", { mode: "json" }).$type<{
+  dnsRecords: jsonb("dns_records").$type<{
     spf: boolean;
     dkim: boolean;
     dmarc: boolean;
     valid: boolean;
     checkedAt: string;
   }>(),
-  imapEnabled: integer("imap_enabled", { mode: "boolean" }).notNull().default(false),
-  imapSameAsSmtp: integer("imap_same_as_smtp", { mode: "boolean" }).notNull().default(true),
+  imapEnabled: boolean("imap_enabled").notNull().default(false),
+  imapSameAsSmtp: boolean("imap_same_as_smtp").notNull().default(true),
   imapHost: text("imap_host"),
   imapPort: integer("imap_port").default(993),
-  imapSecure: integer("imap_secure", { mode: "boolean" }).default(true),
+  imapSecure: boolean("imap_secure").default(true),
   imapUser: text("imap_user"),
   imapPassEncrypted: text("imap_pass_encrypted"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 // ---------------------------------------------------------------------------
 // lists — named lead lists
 // ---------------------------------------------------------------------------
-export const lists = sqliteTable("lists", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const lists = pgTable("lists", {
+  id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 // ---------------------------------------------------------------------------
 // leads — individual contacts
 // ---------------------------------------------------------------------------
-export const leads = sqliteTable("leads", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const leads = pgTable("leads", {
+  id: serial("id").primaryKey(),
   listId: integer("list_id")
     .notNull()
     .references(() => lists.id, { onDelete: "cascade" }),
@@ -120,70 +112,51 @@ export const leads = sqliteTable("leads", {
   email: text("email").notNull(),
   company: text("company").notNull().default(""),
   openingLine: text("opening_line").notNull().default(""),
-  /** JSON object for arbitrary extra fields */
-  customFields: text("custom_fields", { mode: "json" })
+  customFields: jsonb("custom_fields")
     .$type<Record<string, string>>()
     .default({}),
-  /** 'new' | 'contacted' | 'replied' | 'bounced' | 'unsubscribed' */
   status: text("status").notNull().default("new"),
-  openedAt: integer("opened_at", { mode: "timestamp" }),
-  clickedAt: integer("clicked_at", { mode: "timestamp" }),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  openedAt: timestamp("opened_at"),
+  clickedAt: timestamp("clicked_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 // ---------------------------------------------------------------------------
 // sequences — multi-step email sequences (replaces single templates)
 // ---------------------------------------------------------------------------
-export const sequences = sqliteTable("sequences", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const sequences = pgTable("sequences", {
+  id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
   opens: integer("opens").notNull().default(0),
   clicks: integer("clicks").notNull().default(0),
-  lastOpenAt: integer("last_open_at", { mode: "timestamp" }),
-  lastClickAt: integer("last_click_at", { mode: "timestamp" }),
+  lastOpenAt: timestamp("last_open_at"),
+  lastClickAt: timestamp("last_click_at"),
 });
 
 // ---------------------------------------------------------------------------
 // sequence_steps — individual emails within a sequence (ordered)
 // ---------------------------------------------------------------------------
-export const sequenceSteps = sqliteTable("sequence_steps", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const sequenceSteps = pgTable("sequence_steps", {
+  id: serial("id").primaryKey(),
   sequenceId: integer("sequence_id")
     .notNull()
     .references(() => sequences.id, { onDelete: "cascade" }),
-  /** 1-based position within the sequence */
   position: integer("position").notNull(),
-  /** Supports {a|b|c} spintax */
   subject: text("subject").notNull().default(""),
-  /** Supports {a|b|c} spintax and {{variable|fallback}} */
   body: text("body").notNull().default(""),
-  /** Days to wait after the previous step (0 = send immediately / same day for step 1) */
   delayDays: integer("delay_days").notNull().default(0),
-  /** When true, this follow-up is sent as a reply within the previous step's
-   *  email thread (In-Reply-To/References set, subject reused as "Re: …").
-   *  Ignored for the first step (position 1) which starts the thread. */
-  sameThread: integer("same_thread", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  sameThread: boolean("same_thread").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
 // ---------------------------------------------------------------------------
 // campaigns — pair sequence + list + schedule
 // ---------------------------------------------------------------------------
-export const campaigns = sqliteTable("campaigns", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const campaigns = pgTable("campaigns", {
+  id: serial("id").primaryKey(),
   name: text("name").notNull(),
   sequenceId: integer("sequence_id").references(() => sequences.id, {
     onDelete: "set null",
@@ -191,44 +164,31 @@ export const campaigns = sqliteTable("campaigns", {
   listId: integer("list_id").references(() => lists.id, {
     onDelete: "set null",
   }),
-  /** 'draft' | 'scheduled' | 'running' | 'paused' | 'completed' */
   status: text("status").notNull().default("draft"),
-
-  // --- Schedule settings ---
-  /** "HH:MM" 24-hour, e.g. "09:00" */
   sendWindowStart: text("send_window_start").notNull().default("09:00"),
-  /** "HH:MM" 24-hour, e.g. "17:00" */
   sendWindowEnd: text("send_window_end").notNull().default("17:00"),
-  /** IANA timezone, e.g. "America/New_York" */
   timezone: text("timezone").notNull().default("UTC"),
-  /** JSON array of 0-6 (0=Sun). e.g. [1,2,3,4,5] = Mon-Fri */
-  daysOfWeek: text("days_of_week", { mode: "json" })
+  daysOfWeek: jsonb("days_of_week")
     .$type<number[]>()
     .notNull()
     .default([1, 2, 3, 4, 5]),
-  /** Max emails per day across all mailboxes */
   dailyCap: integer("daily_cap").notNull().default(100),
-  /** Min seconds to wait between sends (jitter lower bound) */
   minDelaySeconds: integer("min_delay_seconds").notNull().default(60),
-  /** Max seconds to wait between sends (jitter upper bound) */
   maxDelaySeconds: integer("max_delay_seconds").notNull().default(300),
-
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
   opens: integer("opens").notNull().default(0),
   clicks: integer("clicks").notNull().default(0),
-  lastOpenAt: integer("last_open_at", { mode: "timestamp" }),
-  lastClickAt: integer("last_click_at", { mode: "timestamp" }),
+  lastOpenAt: timestamp("last_open_at"),
+  lastClickAt: timestamp("last_click_at"),
 });
 
 // ---------------------------------------------------------------------------
 // campaign_connections — which mailboxes a campaign rotates through
 // ---------------------------------------------------------------------------
-export const campaignConnections = sqliteTable(
+export const campaignConnections = pgTable(
   "campaign_connections",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     campaignId: integer("campaign_id")
       .notNull()
       .references(() => campaigns.id, { onDelete: "cascade" }),
@@ -247,10 +207,10 @@ export const campaignConnections = sqliteTable(
 // ---------------------------------------------------------------------------
 // messages — per-lead send queue + delivery log
 // ---------------------------------------------------------------------------
-export const messages = sqliteTable(
+export const messages = pgTable(
   "messages",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     campaignId: integer("campaign_id")
       .references(() => campaigns.id, { onDelete: "cascade" }),
     leadId: integer("lead_id")
@@ -262,25 +222,16 @@ export const messages = sqliteTable(
     connectionId: integer("connection_id").references(() => connections.id, {
       onDelete: "set null",
     }),
-    /** Step position within the sequence that this message corresponds to */
     stepPosition: integer("step_position").notNull().default(1),
-    /** 'queued' | 'sending' | 'sent' | 'failed' | 'skipped' */
     status: text("status").notNull().default("queued"),
-    scheduledAt: integer("scheduled_at", { mode: "timestamp" }),
-    sentAt: integer("sent_at", { mode: "timestamp" }),
-    /** RFC822 Message-ID of the sent email — used to match inbound replies/bounces */
+    scheduledAt: timestamp("scheduled_at"),
+    sentAt: timestamp("sent_at"),
     messageId: text("message_id"),
-    /** Spintax already resolved + variables substituted */
     renderedSubject: text("rendered_subject"),
     renderedBody: text("rendered_body"),
     error: text("error"),
-    /** Number of send attempts so far. Transient failures re-queue and
-     *  increment this until it hits the retry ceiling, then the message
-     *  becomes terminally 'failed'. */
     attempts: integer("attempts").notNull().default(0),
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    createdAt: timestamp("created_at").notNull().default(sql`now()`),
   },
   (table) => [
     index("messages_status_scheduled_idx").on(table.status, table.scheduledAt),
@@ -292,20 +243,16 @@ export const messages = sqliteTable(
 // ---------------------------------------------------------------------------
 // inbound_emails — received mail fetched via IMAP across all mailboxes
 // ---------------------------------------------------------------------------
-export const inboundEmails = sqliteTable(
+export const inboundEmails = pgTable(
   "inbound_emails",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     connectionId: integer("connection_id").references(() => connections.id, {
       onDelete: "cascade",
     }),
-    /** IMAP UID within the INBOX folder — used for deduplication per mailbox */
     uid: integer("uid"),
-    /** RFC822 Message-ID header */
     messageId: text("message_id"),
-    /** In-Reply-To header value */
     inReplyTo: text("in_reply_to"),
-    /** References header — space-separated message-ids */
     references: text("references"),
     fromName: text("from_name").notNull().default(""),
     fromEmail: text("from_email").notNull().default(""),
@@ -313,19 +260,13 @@ export const inboundEmails = sqliteTable(
     subject: text("subject").notNull().default(""),
     bodyText: text("body_text"),
     bodyHtml: text("body_html"),
-    /** true when subject/body matched a configured filter keyword */
-    isFiltered: integer("is_filtered", { mode: "boolean" }).notNull().default(false),
-    /** true when this message looks like a DSN/bounce notification (mailer-daemon, NDR subject, etc.) */
-    isBounce: integer("is_bounce", { mode: "boolean" }).notNull().default(false),
-    isRead: integer("is_read", { mode: "boolean" }).notNull().default(false),
-    /** set when the user sends a reply to this inbound email */
-    repliedAt: integer("replied_at", { mode: "timestamp" }),
-    /** 'none' | 'interested' | 'not_interested' | 'meeting_booked' | 'out_of_office' | 'do_not_contact' */
+    isFiltered: boolean("is_filtered").notNull().default(false),
+    isBounce: boolean("is_bounce").notNull().default(false),
+    isRead: boolean("is_read").notNull().default(false),
+    repliedAt: timestamp("replied_at"),
     category: text("category").notNull().default("none"),
-    receivedAt: integer("received_at", { mode: "timestamp" }),
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    receivedAt: timestamp("received_at"),
+    createdAt: timestamp("created_at").notNull().default(sql`now()`),
   },
   (table) => [
     uniqueIndex("inbound_email_uid_unique").on(table.connectionId, table.uid),
@@ -335,20 +276,17 @@ export const inboundEmails = sqliteTable(
 // ---------------------------------------------------------------------------
 // app_settings — simple key-value store for app-level configuration
 // ---------------------------------------------------------------------------
-export const appSettings = sqliteTable("app_settings", {
+export const appSettings = pgTable("app_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull().default(""),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
 // ---------------------------------------------------------------------------
 // links — per-link click tracking aggregated per message
 // ---------------------------------------------------------------------------
-
-export const links = sqliteTable("links", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const links = pgTable("links", {
+  id: serial("id").primaryKey(),
   messageId: text("message_id").notNull(),
   url: text("url").notNull(),
   clicks: integer("clicks").notNull().default(0),
@@ -357,12 +295,11 @@ export const links = sqliteTable("links", {
 // ---------------------------------------------------------------------------
 // daily_analytics — per-day global statistics for fast dashboard queries
 // ---------------------------------------------------------------------------
-
-export const dailyAnalytics = sqliteTable(
+export const dailyAnalytics = pgTable(
   "daily_analytics",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    date: integer("date", { mode: "timestamp" }).notNull(),
+    id: serial("id").primaryKey(),
+    date: timestamp("date").notNull(),
     opens: integer("opens").notNull().default(0),
     clicks: integer("clicks").notNull().default(0),
   },
@@ -371,6 +308,15 @@ export const dailyAnalytics = sqliteTable(
     index("daily_analytics_date_idx").on(table.date),
   ]
 );
+
+// ---------------------------------------------------------------------------
+// scheduler_state — persisted round-robin cursor and other scheduler state
+// ---------------------------------------------------------------------------
+export const schedulerState = pgTable("scheduler_state", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
 
 // ---------------------------------------------------------------------------
 // Inferred types — convenient for use across the app
@@ -413,3 +359,5 @@ export type NewLink = typeof links.$inferInsert;
 
 export type DailyAnalytic = typeof dailyAnalytics.$inferSelect;
 export type NewDailyAnalytic = typeof dailyAnalytics.$inferInsert;
+
+export type SchedulerStateRow = typeof schedulerState.$inferSelect;

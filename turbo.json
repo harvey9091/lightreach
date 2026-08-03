@@ -5,26 +5,32 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**"],
+      "env": ["APP_ENCRYPTION_KEY", "DATABASE_URL", "APP_URL", "CRON_SECRET", "NEXT_RUNTIME", "MCP_API_KEY"]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^lint"],
+      "env": ["APP_ENCRYPTION_KEY", "DATABASE_URL", "APP_URL", "CRON_SECRET", "NEXT_RUNTIME", "MCP_API_KEY"]
     },
     "format": {
       "dependsOn": ["^format"]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"]
+      "dependsOn": ["^typecheck"],
+      "env": ["APP_ENCRYPTION_KEY", "DATABASE_URL", "APP_URL", "CRON_SECRET", "NEXT_RUNTIME", "MCP_API_KEY"]
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": ["APP_ENCRYPTION_KEY", "DATABASE_URL", "APP_URL", "CRON_SECRET", "NEXT_RUNTIME", "MCP_API_KEY"]
     },
     "db:generate": {
-      "cache": false
+      "cache": false,
+      "env": ["DATABASE_URL"]
     },
     "db:migrate": {
-      "cache": false
+      "cache": false,
+      "env": ["DATABASE_URL"]
     }
   }
 }

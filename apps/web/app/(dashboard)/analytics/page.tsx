@@ -37,7 +37,6 @@ import {
   eq,
   desc,
   gte,
-  sql,
 } from "drizzle-orm"
 
 function pct(num: number, denom: number): string {
@@ -111,15 +110,12 @@ async function getCampaignStats() {
 }
 
 async function getDailyStats() {
-  const now = new Date()
   const days = Array.from({ length: 14 }, (_, i) => {
     const d = new Date()
     d.setDate(d.getDate() - (13 - i))
     d.setHours(0, 0, 0, 0)
     return d
   })
-
-  const weekStartMs = days[0]!.getTime()
 
   const sentMessages = await db
     .select({ sentAt: messages.sentAt })
@@ -132,14 +128,14 @@ async function getDailyStats() {
   const clickRows = await db
     .select({ clickedAt: linkClicks.clickedAt })
     .from(linkClicks)
-    .where(gte(linkClicks.clickedAt, Math.floor(weekStartMs / 1000)))
+    .where(gte(linkClicks.clickedAt, days[0]!))
 
   return days.map((d) => {
     const dayStart = d.getTime()
     const dayEnd = dayStart + 86_400_000
     const sent = sentMessages.filter((m) => (m.sentAt?.getTime() ?? 0) >= dayStart && (m.sentAt?.getTime() ?? 0) < dayEnd).length
     const opens = openRows.filter((r) => (r.openedAt?.getTime() ?? 0) >= dayStart && (r.openedAt?.getTime() ?? 0) < dayEnd).length
-    const clicks = clickRows.filter((r) => { const ts = typeof r.clickedAt === "number" ? r.clickedAt * 1000 : 0; return ts >= dayStart && ts < dayEnd }).length
+    const clicks = clickRows.filter((r) => (r.clickedAt?.getTime() ?? 0) >= dayStart && (r.clickedAt?.getTime() ?? 0) < dayEnd).length
     return {
       date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       day: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()]!,
@@ -194,7 +190,7 @@ async function getRecentActivity() {
   for (const c of recentClicks) {
     let displayUrl = c.originalUrl
     try { const u = new URL(c.originalUrl); displayUrl = u.hostname + u.pathname } catch {}
-    const clickedAtMs = (c.clickedAt ?? 0) * 1000
+    const clickedAtMs = c.clickedAt?.getTime() ?? 0
     activities.push({
       type: "click",
       label: `${c.leadFirstName ?? ""} ${c.leadLastName ?? ""}`.trim() || "Someone",

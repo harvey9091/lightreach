@@ -1,4 +1,4 @@
-import { db } from '@workspace/db'
+import { db, schedulerState, rawQuery } from '@workspace/db'
 import {
   messages,
   campaigns,
@@ -17,14 +17,15 @@ import { buildTrackingHtml } from '@workspace/core/email/tracking'
 import { eq, and, lt, lte, gte, isNotNull, asc, desc, sql } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { enqueueNewLeads } from '@/lib/enqueue-leads'
+import { startOfDay } from '@/lib/time-utils'
 
 const TICK_MS = 60_000
 const BATCH_SIZE = 10
-/** Terminal after this many attempts — earlier attempts re-queue with backoff. */
 const MAX_ATTEMPTS = 3
-/** A mailbox is only auto-disabled after this many consecutive (non-bounce) failures. */
 const CONNECTION_ERROR_THRESHOLD = 3
 const RETRY_BACKOFF_BASE_MS = 5 * 60_000
+
+const SCHEDULER_STATE_KEY = 'lastUsedConnectionByCampaign'
 
 async function loadTrackingSettings(): Promise<{ openTracking: boolean; linkTracking: boolean }> {
   try {
@@ -89,9 +90,38 @@ function isHardBounce(err: unknown): boolean {
 let schedulerHandle: ReturnType<typeof setInterval> | null = null
 let ticking = false
 let recovered = false
+
+async function loadSchedulerState(): Promise<Map<number, number>> {
+  try {
+    const [row] = await db
+      .select({ value: schedulerState.value })
+      .from(schedulerState)
+      .where(eq(schedulerState.key, SCHEDULER_STATE_KEY))
+      .limit(1)
+    if (row?.value) {
+      const parsed = JSON.parse(row.value) as Record<number, number>
+      return new Map(Object.entries(parsed).map(([k, v]) => [Number(k), Number(v)]))
+    }
+  } catch {
+    // ignore
+  }
+  return new Map()
+}
+
+async function saveSchedulerState(state: Map<number, number>): Promise<void> {
+  const obj = Object.fromEntries(state)
+  await db
+    .insert(schedulerState)
+    .values({ key: SCHEDULER_STATE_KEY, value: JSON.stringify(obj) })
+    .onConflictDoUpdate({
+      target: schedulerState.key,
+      set: { value: JSON.stringify(obj), updatedAt: new Date() },
+    })
+}
+
 /** Round-robin cursor per campaign, persisted across ticks so low-id mailboxes
  *  aren't systematically favored every time the tick loop restarts. */
-const lastUsedConnectionByCampaign = new Map<number, number>()
+let lastUsedConnectionByCampaign = new Map<number, number>()
 
 export function startScheduler(): void {
   if (schedulerHandle) {
@@ -139,13 +169,18 @@ type ConnRow = {
 
 /** Serial wrapper: setInterval has no built-in reentrancy guard, and a batch of
  *  slow SMTP sends (plus jitter delays) can easily outlast one 60s interval. */
-async function tick(): Promise<void> {
+export async function tick(): Promise<void> {
   if (ticking) return
   ticking = true
   try {
+    const [lockResult] = await rawQuery("SELECT pg_try_advisory_xact_lock($1) AS locked", [1])
+    const locked = (lockResult as { locked: boolean }).locked
+    if (!locked) {
+      console.log('[Lightreach][tick] Skipped: another instance holds the scheduler lock')
+      return
+    }
+
     if (!recovered) {
-      // Rows left in 'sending' from a process crash mid-send must go back to
-      // 'queued' or they'd be stuck forever (never re-selected, never resent).
       await db
         .update(messages)
         .set({ status: 'queued' })
@@ -159,10 +194,10 @@ async function tick(): Promise<void> {
 }
 
 async function runTick(): Promise<void> {
+  lastUsedConnectionByCampaign = await loadSchedulerState()
   const now = new Date()
 
-  const todayStart = new Date(now)
-  todayStart.setHours(0, 0, 0, 0)
+  const todayStart = startOfDay(now)
 
   const runningCampaigns = await db
     .select({
@@ -666,4 +701,5 @@ async function runTick(): Promise<void> {
   }
 
   console.log(`[Lightreach][tick] tick finished. touchedCampaigns: ${touchedCampaignIds.size}, sentAnyThisTick: ${sentAnyThisTick}`)
+  await saveSchedulerState(lastUsedConnectionByCampaign)
 }

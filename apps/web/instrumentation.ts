@@ -2,13 +2,14 @@
  * Lightreach in-process scheduler
  *
  * Next.js calls `register()` once when the Node.js server boots.
- * We use it to start the background send-loop tick.
+ * We use it to start the background send-loop tick and inbox poller.
  *
- * ⚠️  SERVERLESS NOTE: This only works correctly in a persistent Node.js
- * process (`pnpm start`). On serverless platforms (Vercel, Netlify…) the
- * process may be spun down between requests, causing the scheduler to miss
- * ticks. For production serverless use, replace this with an external cron
- * job that calls a Route Handler endpoint.
+ * On production (Render), Render Cron Jobs also hit /api/cron/scheduler-tick
+ * and /api/cron/inbox-poll every minute/2min respectively, so campaigns
+ * continue even if the web process is spun down.
+ *
+ * For local development, the in-process timers provide immediate feedback
+ * without needing to configure cron jobs.
  */
 
 export async function register() {

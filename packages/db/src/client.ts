@@ -1,17 +1,52 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import path from "path";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "./schema";
 
-const dbPath =
-  process.env["DATABASE_URL"]?.replace("file:", "") ??
-  path.join(process.cwd(), "data.db");
+const connectionString = process.env["DATABASE_URL"];
 
-const sqlite = new Database(dbPath);
+let _client: ReturnType<typeof postgres> | null = null;
+let _db: ReturnType<typeof drizzle> | null = null;
 
-// WAL mode for better concurrent read performance
-sqlite.pragma("journal_mode = WAL");
+function getDb() {
+  if (!_db) {
+    if (!connectionString) {
+      throw new Error(
+        "DATABASE_URL environment variable is required. Set it to a PostgreSQL connection string."
+      );
+    }
+    _client = postgres(connectionString, { prepare: false });
+    _db = drizzle(_client, { schema });
+  }
+  return _db;
+}
 
-export const db = drizzle(sqlite, { schema });
+function getRawClient(): ReturnType<typeof postgres> {
+  if (!_client) {
+    getDb();
+  }
+  return _client!;
+}
 
-export type DB = typeof db;
+const handler: ProxyHandler<ReturnType<typeof drizzle>> = {
+  get(_, prop) {
+    const instance = getDb();
+    const value = (instance as unknown as Record<string, unknown>)[prop as string];
+    if (typeof value === "function") {
+      return value.bind(instance);
+    }
+    return value;
+  },
+  set(_, prop, value) {
+    const instance = getDb();
+    (instance as unknown as Record<string, unknown>)[prop as string] = value;
+    return true;
+  },
+};
+
+export const db = new Proxy({} as ReturnType<typeof drizzle>, handler);
+
+export type DB = ReturnType<typeof drizzle>;
+
+export async function rawQuery(query: string, params: unknown[] = []): Promise<Record<string, unknown>[]> {
+  return getRawClient().unsafe(query, params as never[]);
+}

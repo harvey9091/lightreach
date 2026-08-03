@@ -396,7 +396,7 @@ export default function SettingsPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ── Environment ──────────────────────────────────────────── */}
+        {/* --- Environment ----------------------------------------------------------------- */}
         <TabsContent value="environment" className="mt-6 space-y-4">
           <Card>
             <CardHeader>
@@ -437,13 +437,20 @@ export default function SettingsPage() {
                 <div>
                   <p className="text-sm font-medium font-mono">DATABASE_URL</p>
                   <p className="text-muted-foreground mt-1 text-xs">
-                    SQLite database path. Defaults to <code className="font-mono text-xs">file:./data.db</code>.
+                    PostgreSQL connection string. Required for production.
                   </p>
                 </div>
-                <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 gap-1.5">
-                  <span className="status-dot status-dot-success" />
-                  {process.env["DATABASE_URL"] ?? "file:./data.db (default)"}
-                </Badge>
+                {process.env["DATABASE_URL"] ? (
+                  <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 gap-1.5">
+                    <span className="status-dot status-dot-success" />
+                    {process.env["DATABASE_URL"]}
+                  </Badge>
+                ) : (
+                  <Badge className="bg-red-500/10 text-red-400 border border-red-500/20 gap-1.5">
+                    <span className="status-dot status-dot-error" />
+                    Missing
+                  </Badge>
+                )}
               </div>
 
               {!encKeySet && (
@@ -461,7 +468,7 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* ── Sending defaults ─────────────────────────────────────── */}
+        {/* --- Sending defaults ------------------------------------------------------------- */}
         <TabsContent value="sending" className="mt-6">
           <Card>
             <CardHeader>
@@ -532,7 +539,7 @@ export default function SettingsPage() {
           <TrackingControls />
         </TabsContent>
 
-        {/* ── Appearance ──────────────────────────────────────────── */}
+        {/* --- Appearance ------------------------------------------------------------------- */}
         <TabsContent value="appearance" className="mt-6 space-y-5">
           <Card>
             <CardHeader>
@@ -589,7 +596,7 @@ export default function SettingsPage() {
           <AppearanceControls />
         </TabsContent>
 
-        {/* ── About ───────────────────────────────────────────────── */}
+        {/* --- About ------------------------------------------------------------------------ */}
         <TabsContent value="about" className="mt-6">
           <Card className="border-dashed">
             <CardHeader>

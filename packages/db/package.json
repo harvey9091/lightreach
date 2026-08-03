@@ -16,11 +16,11 @@
     "./migrate": "./src/migrate.ts"
   },
   "dependencies": {
-    "better-sqlite3": "^11.10.0",
-    "drizzle-orm": "^0.44.2"
+    "drizzle-orm": "^0.44.2",
+    "postgres": "^3.4.5"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^20.19.41",
     "@workspace/typescript-config": "workspace:*",
     "drizzle-kit": "^0.31.1",
     "typescript": "^5"

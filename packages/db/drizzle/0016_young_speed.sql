@@ -1,1 +1,0 @@
-ALTER TABLE `messages` ADD `sequence_id` integer REFERENCES sequences(id);

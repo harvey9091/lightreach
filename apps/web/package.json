@@ -36,7 +36,6 @@
     "@vitest/coverage-v8": "^4.1.10",
     "@workspace/eslint-config": "workspace:^",
     "@workspace/typescript-config": "workspace:*",
-    "better-sqlite3": "^11.10.0",
     "eslint": "^9",
     "typescript": "^5",
     "vitest": "^4.1.10"

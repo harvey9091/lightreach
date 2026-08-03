@@ -1,4 +1,5 @@
 import { db } from '@workspace/db'
+import { startOfDay } from '@/lib/time-utils'
 import {
   emailOpens,
   linkClicks,
@@ -40,8 +41,8 @@ export interface ClickAnalyticsInput {
 // ---------------------------------------------------------------------------
 
 export async function recordOpen(input: OpenAnalyticsInput): Promise<void> {
-  const nowSec = Math.floor(Date.now() / 1000)
-  const todayStart = new Date(Math.floor(nowSec / 86400) * 86400 * 1000)
+  const now = new Date()
+  const todayStart = startOfDay(now)
   const todayEnd = new Date(todayStart.getTime() + 86_400_000)
 
   try {
@@ -76,7 +77,7 @@ export async function recordOpen(input: OpenAnalyticsInput): Promise<void> {
           messageId: resolvedMessageId,
           campaignId: input.campaignId ?? null,
           leadId: input.leadId ?? null,
-          openedAt: new Date(nowSec * 1000),
+          openedAt: now,
           userAgent: input.userAgent,
           ipAddress: input.ipAddress,
         })
@@ -90,14 +91,14 @@ export async function recordOpen(input: OpenAnalyticsInput): Promise<void> {
             .update(campaigns)
             .set({
               opens: sql`${campaigns.opens} + 1`,
-              lastOpenAt: new Date(nowSec * 1000),
+              lastOpenAt: now,
             })
             .where(eq(campaigns.id, input.campaignId))
         }
         if (input.leadId) {
           await db
             .update(leads)
-            .set({ openedAt: new Date(nowSec * 1000) })
+            .set({ openedAt: now })
             .where(eq(leads.id, input.leadId))
         }
       }
@@ -112,7 +113,7 @@ export async function recordOpen(input: OpenAnalyticsInput): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function recordClick(input: ClickAnalyticsInput): Promise<void> {
-  const nowSec = Math.floor(Date.now() / 1000)
+  const now = new Date()
 
   try {
     const [clickRow] = await db
@@ -123,7 +124,7 @@ export async function recordClick(input: ClickAnalyticsInput): Promise<void> {
         campaignId: input.campaignId ?? null,
         leadId: input.leadId ?? null,
         originalUrl: input.originalUrl,
-        clickedAt: Math.floor(Date.now() / 1000),
+        clickedAt: now,
         userAgent: input.userAgent,
         ipAddress: input.ipAddress,
       })
@@ -131,7 +132,8 @@ export async function recordClick(input: ClickAnalyticsInput): Promise<void> {
       .returning()
 
     if (clickRow) {
-      await updateDailyAnalytics(new Date(Math.floor(nowSec / 86400) * 86400 * 1000), {
+      const todayStart = startOfDay(now)
+      await updateDailyAnalytics(todayStart, {
         clicks: 1,
       })
       if (input.campaignId) {
@@ -139,20 +141,20 @@ export async function recordClick(input: ClickAnalyticsInput): Promise<void> {
           .update(campaigns)
           .set({
             clicks: sql`${campaigns.clicks} + 1`,
-            lastClickAt: new Date(nowSec * 1000),
+            lastClickAt: now,
           })
           .where(eq(campaigns.id, input.campaignId))
       }
       if (input.sequenceId) {
         await db
           .update(sequences)
-          .set({ clicks: sql`${sequences.clicks} + 1`, lastClickAt: new Date(nowSec * 1000) })
+          .set({ clicks: sql`${sequences.clicks} + 1`, lastClickAt: now })
           .where(eq(sequences.id, input.sequenceId))
       }
       if (input.leadId) {
         await db
           .update(leads)
-          .set({ clickedAt: new Date(nowSec * 1000) })
+          .set({ clickedAt: now })
           .where(eq(leads.id, input.leadId))
       }
       await db

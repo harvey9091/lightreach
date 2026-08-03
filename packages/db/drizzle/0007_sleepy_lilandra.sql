@@ -1,1 +1,0 @@
-ALTER TABLE `inbound_emails` ADD `category` text DEFAULT 'none' NOT NULL;

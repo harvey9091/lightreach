@@ -1,4 +1,4 @@
-import { db } from '@workspace/db'
+import { db, rawQuery } from '@workspace/db'
 import { connections, inboundEmails, appSettings, messages, leads } from '@workspace/db/schema'
 import { decrypt } from '@workspace/core/crypto'
 import { resolveImapConfig, fetchRecent } from '@workspace/core/email/imap'
@@ -299,6 +299,13 @@ export async function pollAllInboxes(): Promise<void> {
   if (isPolling) return
   isPolling = true
   try {
+    const [lockResult] = await rawQuery("SELECT pg_try_advisory_xact_lock($1) AS locked", [2])
+    const locked = (lockResult as { locked: boolean }).locked
+    if (!locked) {
+      console.log('[Lightreach][inbox-poll] Skipped: another instance holds the inbox lock')
+      return
+    }
+
     await runPoll()
   } finally {
     isPolling = false
@@ -369,9 +376,10 @@ async function runPoll(): Promise<void> {
             receivedAt: email.receivedAt,
           })
           .onConflictDoNothing()
+          .returning({ id: inboundEmails.id })
 
         // Only classify newly inserted emails (skip duplicates)
-        if (inserted.changes > 0) {
+        if (inserted.length > 0) {
           await classifyAndActOnInbound(email)
         }
       }

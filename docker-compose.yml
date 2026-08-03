@@ -1,15 +1,30 @@
 services:
-  # One-shot: applies pending drizzle migrations to the shared volume, then exits.
-  # Reuses the `build` stage, which still has drizzle-kit + full source.
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lightreach
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: lightreach
+    volumes:
+      - lightreach-db:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lightreach"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   migrate:
     build:
       context: .
       target: build
-    command: sh -c "pnpm db:migrate && chown -R 1001:1001 /data"
+    command: sh -c "pnpm db:migrate"
     environment:
-      DATABASE_URL: file:/data/data.db
-    volumes:
-      - lightreach-data:/data
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+    depends_on:
+      db:
+        condition: service_healthy
     restart: on-failure
 
   web:
@@ -22,9 +37,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: file:/data/data.db
-    volumes:
-      - lightreach-data:/data
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET is required}
     ports:
       - "127.0.0.1:3000:3000"
     restart: unless-stopped
@@ -35,25 +48,5 @@ services:
       retries: 3
       start_period: 60s
 
-  # --- optional: automatic HTTPS reverse proxy ---------------------------------
-  # Uncomment if this VPS has no reverse proxy of its own. Point a domain's DNS
-  # at the VPS, set it in Caddyfile, and Caddy will provision/renew Let's
-  # Encrypt certs automatically.
-  #
-  # caddy:
-  #   image: caddy:2-alpine
-  #   depends_on:
-  #     - web
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./Caddyfile:/etc/caddy/Caddyfile
-  #     - caddy-data:/data
-  #     - caddy-config:/config
-  #   restart: unless-stopped
-
 volumes:
-  lightreach-data:
-  # caddy-data:
-  # caddy-config:
+  lightreach-db:

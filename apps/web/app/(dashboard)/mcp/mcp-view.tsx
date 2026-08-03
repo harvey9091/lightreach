@@ -319,7 +319,8 @@ export function McpView({ hasToken, appUrl }: { hasToken: boolean; appUrl: strin
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* ── Access Token ─────────────────────────────────────────────── */}
+         {/* --- Access Token --------------------------------------------------------------- */}
+
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-4">
@@ -426,7 +427,8 @@ export function McpView({ hasToken, appUrl }: { hasToken: boolean; appUrl: strin
           </CardContent>
         </Card>
 
-        {/* ── Connect your agent ───────────────────────────────────────── */}
+         {/* --- Connect your agent ---------------------------------------------------------- */}
+
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2.5">
@@ -477,7 +479,7 @@ export function McpView({ hasToken, appUrl }: { hasToken: boolean; appUrl: strin
         </Card>
       </div>
 
-      {/* ── Tool Reference ─────────────────────────────────────────────── */}
+      {/* --- Tool Reference --------------------------------------------------------------- */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2.5">
